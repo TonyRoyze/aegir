@@ -55,7 +55,7 @@ const parseTime = (input: string): number | null => {
 
 export default function TimingPage() {
   const [selectedMeetId, setSelectedMeetId] = useState<string>("");
-  const [selectedEvent, setSelectedEvent] = useState<string>("");
+  const [selectedEvent, setSelectedEvent] = useState<string>("25m Freestyle");
 
   const meets = useQuery(api.meets.getMeets);
   const selectedMeet = meets?.find(m => m._id === selectedMeetId);
