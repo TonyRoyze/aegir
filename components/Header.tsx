@@ -12,7 +12,7 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer"
-import { Menu, Home, UserPlus, Users, BookImage, Calendar, ListOrdered } from 'lucide-react';
+import { Menu, Home, UserPlus, Clock, BookImage, Calendar, ListOrdered } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // You might not have use-media-query hook, standard drawer usage handles responsiveness mostly by being conditional or using 'vaul' logic?
@@ -24,6 +24,7 @@ const NAV_ITEMS = [
   { label: 'Register', href: '/register', icon: UserPlus },
   { label: 'Event Order', href: '/event_order', icon: ListOrdered },
   { label: 'Meets', href: '/meets', icon: Calendar },
+  { label: 'Timing', href: '/timing', icon: Clock },
   { label: 'Gallery', href: '/gallery', icon: BookImage },
 ]
 

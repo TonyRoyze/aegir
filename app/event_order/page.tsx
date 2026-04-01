@@ -28,7 +28,7 @@ function SortableEventItem({ id, name }: { id: string, name: string }) {
   };
 
   return (
-    <div ref={setNodeRef} style={style} className="flex items-center gap-2 p-2 bg-card border rounded-md mb-2 group hover:border-primary/50 transition-colors bg-white">
+    <div ref={setNodeRef} style={style} className="flex items-center gap-2 p-2 border rounded-md mb-2 group hover:border-primary/50 transition-colors bg-card">
       <button {...attributes} {...listeners} className="cursor-grab hover:bg-muted p-1 rounded active:cursor-grabbing touch-none">
         <GripVertical className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
       </button>
