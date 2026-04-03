@@ -8,6 +8,7 @@ export default defineSchema({
     events: v.array(v.string()),
     status: v.union(v.literal("active"), v.literal("archived")),
     pointSystem: v.optional(v.array(v.number())), // e.g. [10, 8, 6, 5, 4, 3, 2, 1]
+    eventPointSystems: v.optional(v.record(v.string(), v.array(v.number()))), // Event name -> Point list override
   }),
 
   students: defineTable({
@@ -31,7 +32,7 @@ export default defineSchema({
 
   results: defineTable({
     meetId: v.id("meets"),
-    studentId: v.id("students"),
+    studentId: v.string(), // External ID of the student
     event: v.string(),
     timing: v.number(), // in milliseconds
     rank: v.optional(v.number()),

@@ -17,9 +17,15 @@ export const getResults = query({
       )
       .collect();
 
-    // Enrich with student details
-    const studentIds = results.map(r => r.studentId);
-    const students = await Promise.all(studentIds.map(id => ctx.db.get(id)));
+    // Enrich with student details using externalId
+    const students = await Promise.all(
+      results.map(r =>
+        ctx.db
+          .query("students")
+          .withIndex("by_externalId", (q) => q.eq("externalId", r.studentId))
+          .unique()
+      )
+    );
 
     return results.map((r, i) => ({
       ...r,
@@ -28,10 +34,41 @@ export const getResults = query({
   },
 });
 
+export const getMeetResults = query({
+  args: {
+    meetId: v.id("meets"),
+  },
+  handler: async (ctx, args) => {
+    const results = await ctx.db
+      .query("results")
+      .withIndex("by_meet_event", (q) => q.eq("meetId", args.meetId))
+      .collect();
+
+    // Enrich with student details using externalId
+    const studentIds = Array.from(new Set(results.map(r => r.studentId)));
+    const studentsData = await Promise.all(
+      studentIds.map(async (id) =>
+        ctx.db
+          .query("students")
+          .withIndex("by_externalId", (q) => q.eq("externalId", id))
+          .unique()
+      )
+    );
+
+    const studentMap = new Map();
+    studentIds.forEach((id, i) => studentMap.set(id, studentsData[i]));
+
+    return results.map(r => ({
+      ...r,
+      student: studentMap.get(r.studentId)
+    }));
+  },
+});
+
 export const saveResult = mutation({
   args: {
     meetId: v.id("meets"),
-    studentId: v.id("students"),
+    studentId: v.string(),
     event: v.string(),
     timing: v.number(), // in milliseconds
   },
@@ -70,7 +107,8 @@ export const saveResult = mutation({
 
     // Get Meet Point System
     const meet = await ctx.db.get(args.meetId);
-    const pointsConfig = meet?.pointSystem || DEFAULT_POINTS;
+    const eventOverride = meet?.eventPointSystems?.[args.event];
+    const pointsConfig = eventOverride || meet?.pointSystem || DEFAULT_POINTS;
 
     // Update ranks and points
     // Logic: Same time = same rank. Skip ranks after ties? (e.g. 1, 1, 3).
