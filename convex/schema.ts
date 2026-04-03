@@ -47,4 +47,17 @@ export default defineSchema({
     link: v.string(),
     coverImage: v.optional(v.string()),
   }),
+
+  users: defineTable({
+    username: v.string(),
+    password: v.string(), // Hashed
+    role: v.union(v.literal("super_admin"), v.literal("admin"), v.literal("user")),
+    name: v.string(),
+  }).index("by_username", ["username"]),
+
+  sessions: defineTable({
+    userId: v.id("users"),
+    token: v.string(),
+    expiresAt: v.number(),
+  }).index("by_token", ["token"]),
 });

@@ -221,10 +221,20 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex flex-col sm:flex-row items-center gap-4">
                   {/* Gender Selector */}
-                  <Tabs value={selectedGender} onValueChange={(val) => {
-                    setSelectedGender(val as "Male" | "Female")
-                    setSelectedEventStanding("") // Reset event when changing gender
-                  }}>
+                  <Tabs value={selectedGender}
+                    onValueChange={(val) => {
+                      const nextGender = val as "Male" | "Female";
+                      const oldPrefix = selectedGender === "Male" ? "M:" : "W:";
+                      const newPrefix = nextGender === "Male" ? "M:" : "W:";
+
+                      setSelectedGender(nextGender);
+
+                      // Try to find the same event for the other gender instead of just clearing it
+                      if (selectedEventStanding) {
+                        const eventName = selectedEventStanding.replace(oldPrefix, "");
+                        setSelectedEventStanding(`${newPrefix}${eventName}`);
+                      }
+                    }}>
                     <TabsList className="h-9">
                       <TabsTrigger value="Male" className="px-4 text-xs font-semibold">Men</TabsTrigger>
                       <TabsTrigger value="Female" className="px-4 text-xs font-semibold">Women</TabsTrigger>

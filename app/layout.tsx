@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { LeftSidebar } from "@/components/LeftSidebar";
 import ConvexClientProvider from "@/components/ConvexClientProvider";
+import { AuthProvider } from "@/components/AuthProvider";
+import { LayoutContent } from "@/components/LayoutContent";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,14 +31,12 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}
       >
         <ConvexClientProvider>
-          <LeftSidebar />
-          <main className="flex-1 md:pl-64 print:pl-0">
-            <div className="container mx-auto print:p-0 print:max-w-none">
-              {children}
-            </div>
-          </main>
+          <AuthProvider>
+            <LayoutContent>{children}</LayoutContent>
+          </AuthProvider>
         </ConvexClientProvider>
       </body>
     </html>
   );
 }
+
