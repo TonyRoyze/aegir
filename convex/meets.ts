@@ -14,6 +14,7 @@ export const createMeet = mutation({
     date: v.string(),
     events: v.array(v.string()),
     pointSystem: v.optional(v.array(v.number())),
+    eventPointSystems: v.optional(v.record(v.string(), v.array(v.number()))),
   },
   handler: async (ctx, args) => {
     await ctx.db.insert("meets", {
@@ -22,6 +23,7 @@ export const createMeet = mutation({
       events: args.events,
       status: "active",
       pointSystem: args.pointSystem,
+      eventPointSystems: args.eventPointSystems,
     });
   },
 });
@@ -53,6 +55,7 @@ export const updateMeet = mutation({
     date: v.string(),
     events: v.array(v.string()),
     pointSystem: v.optional(v.array(v.number())),
+    eventPointSystems: v.optional(v.record(v.string(), v.array(v.number()))),
   },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.id, {
@@ -60,6 +63,7 @@ export const updateMeet = mutation({
       date: args.date,
       events: args.events,
       pointSystem: args.pointSystem,
+      eventPointSystems: args.eventPointSystems,
     });
   },
 });

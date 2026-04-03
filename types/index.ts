@@ -42,7 +42,11 @@ export const SWIM_EVENTS = [
   "100m Butterfly",
   "200m Butterfly",
   "100m Individual Medley",
-  "200m Individual Medley"
+  "200m Individual Medley",
+  "4x25m Freestyle Relay",
+  "4x25m Medley Relay",
+  "2x50m Freestyle Relay",
+  "2x50m Medley Relay"
 ] as const;
 
 export type SwimEvent = typeof SWIM_EVENTS[number];

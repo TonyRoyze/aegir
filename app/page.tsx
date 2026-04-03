@@ -1,7 +1,5 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
-import Link from "next/link"
 import { useEffect, useState } from "react"
 import { useQuery } from "convex/react"
 import { api } from "@/convex/_generated/api"
@@ -12,11 +10,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Loader2, Trophy, Users, Waves, ArrowRight, Medal } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Id } from "@/convex/_generated/dataModel"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Progress } from "@/components/ui/progress"
 
 // Helper
 const formatTime = (ms: number | undefined | null) => {
@@ -29,10 +29,20 @@ const formatTime = (ms: number | undefined | null) => {
 
 export default function DashboardPage() {
   const [selectedMeetId, setSelectedMeetId] = useState<string | null>(null)
+  const [selectedGender, setSelectedGender] = useState<"Male" | "Female">("Male")
   const [selectedEventStanding, setSelectedEventStanding] = useState<string>("")
+
+  const genderPrefix = selectedGender === "Male" ? "M:" : "W:"
 
   const stats = useQuery(api.dashboard.getStats, selectedMeetId ? { meetId: selectedMeetId as Id<"meets"> } : "skip")
   const meets = useQuery(api.meets.getMeets)
+
+  useEffect(() => {
+    if (meets && meets.length > 0 && !selectedMeetId) {
+      const active = meets.find(m => m.status === 'active');
+      setSelectedMeetId(active?._id || meets[0]._id);
+    }
+  }, [meets, selectedMeetId]);
 
   const eventResults = useQuery(api.results.getResults,
     selectedMeetId && selectedEventStanding ? { meetId: selectedMeetId as Id<"meets">, event: selectedEventStanding } : "skip"
@@ -41,6 +51,8 @@ export default function DashboardPage() {
   const selectedMeet = meets?.find(m => m._id === selectedMeetId);
 
   const { totalParticipants, totalEntries, facultyLeaderboard, studentLeaderboard } = stats || { totalParticipants: 0, totalEntries: 0, facultyLeaderboard: [], studentLeaderboard: [] }
+
+  const totalPoints = facultyLeaderboard.reduce((acc, f) => acc + f.score, 0);
 
   return (
     <div className="space-y-8 p-4 md:p-8 animate-in fade-in duration-500">
@@ -51,7 +63,7 @@ export default function DashboardPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Select onValueChange={(value) => setSelectedMeetId(value)}>
+          <Select value={selectedMeetId || ""} onValueChange={(value) => setSelectedMeetId(value)}>
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Select a meet" />
             </SelectTrigger>
@@ -66,17 +78,6 @@ export default function DashboardPage() {
               )}
             </SelectContent>
           </Select>
-          <Button asChild>
-            <Link href="/register">
-              Register Student <ArrowRight className="ml-2 h-4 w-4" />
-            </Link>
-          </Button>
-          <Button asChild variant="outline">
-            <Link href="/timing">Timing</Link>
-          </Button>
-          <Button asChild variant="outline">
-            <Link href="/meets">Manage Meets</Link>
-          </Button>
         </div>
       </div>
 
@@ -101,7 +102,7 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{totalEntries}</div>
-                <p className="text-xs text-muted-foreground">Individual splashdowns</p>
+                <p className="text-xs text-muted-foreground">Individual</p>
               </CardContent>
             </Card>
             <Card className="bg-linear-to-br from-primary/10 to-background border-primary/20">
@@ -114,7 +115,7 @@ export default function DashboardPage() {
                   {facultyLeaderboard[0]?.name || "N/A"}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Leading with {facultyLeaderboard[0]?.score || 0} entries
+                  Leading with {facultyLeaderboard[0]?.score || 0} points
                 </p>
               </CardContent>
             </Card>
@@ -146,18 +147,17 @@ export default function DashboardPage() {
                         )}>
                           {index + 1}
                         </div>
-                        <div className="flex-1 space-y-1">
+                        <div className="flex-1 space-y-1.5">
                           <div className="flex justify-between text-sm font-medium">
                             <span>{faculty.name}</span>
-                            <span className="text-muted-foreground">{faculty.score}</span>
+                            <span className="text-muted-foreground text-xs font-semibold">
+                              {faculty.score} / {totalPoints}
+                            </span>
                           </div>
-                          {/* Simple Progress Bar */}
-                          <div className="h-2 w-full rounded-full bg-secondary overflow-hidden">
-                            <div
-                              className="h-full bg-primary transition-all duration-500"
-                              style={{ width: `${(faculty.score / (facultyLeaderboard[0]?.score || 1)) * 100}%` }}
-                            />
-                          </div>
+                          <Progress
+                            value={(faculty.score / (totalPoints || 1)) * 100}
+                            className="h-2"
+                          />
                         </div>
                       </div>
                     ))
@@ -209,27 +209,40 @@ export default function DashboardPage() {
           </div>
 
           {/* Event Standings */}
-          <Card className="mt-4">
+          <Card className="h-full mt-4">
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="flew flw-col gap-2">
                   <CardTitle className="flex items-center gap-2">
                     <Waves className="h-5 w-5 text-blue-500" />
                     Event Standings
                   </CardTitle>
-                  <CardDescription>View results by event</CardDescription>
+                  <CardDescription>View live results per event</CardDescription>
                 </div>
-                <div className="w-[200px]">
-                  <Select value={selectedEventStanding} onValueChange={setSelectedEventStanding}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Event" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {selectedMeet?.events?.map(e => (
-                        <SelectItem key={e} value={e}>{e}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                  {/* Gender Selector */}
+                  <Tabs value={selectedGender} onValueChange={(val) => {
+                    setSelectedGender(val as "Male" | "Female")
+                    setSelectedEventStanding("") // Reset event when changing gender
+                  }}>
+                    <TabsList className="h-9">
+                      <TabsTrigger value="Male" className="px-4 text-xs font-semibold">Men</TabsTrigger>
+                      <TabsTrigger value="Female" className="px-4 text-xs font-semibold">Women</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+
+                  <div className="w-full">
+                    <Select value={selectedEventStanding} onValueChange={setSelectedEventStanding}>
+                      <SelectTrigger className="h-9">
+                        <SelectValue placeholder="Select Event" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {selectedMeet?.events?.filter(e => e.startsWith(genderPrefix)).map(e => (
+                          <SelectItem key={e} value={e}>{e.replace(/^([MW]):/, "")}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
             </CardHeader>

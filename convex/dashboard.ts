@@ -44,18 +44,42 @@ export const getStats = query({
       .collect();
 
     // 4. Get Student details
-    // Combine IDs from results and registrations (though registrations usually covers everyone)
-    const uniqueStudentIds = [...new Set([
-      ...registrations.map(r => r.studentId),
-      ...results.map(r => r.studentId)
-    ])];
-
-    // Fetch students efficiently
-    const students = await Promise.all(uniqueStudentIds.map(id => ctx.db.get(id)));
+    // registrations stores studentId as a Convex ID
+    const convexStudentIds = [...new Set(registrations.map(r => r.studentId))];
+    const initialStudents = await Promise.all(convexStudentIds.map(id => ctx.db.get(id)));
+    
     const studentMap = new Map();
-    students.forEach(s => {
-      if (s) studentMap.set(s._id, s);
+    const studentsByExternalId = new Map(); // map externalId -> student record
+
+    initialStudents.forEach(s => {
+      if (s) {
+        studentMap.set(s._id, s);
+        studentsByExternalId.set(s.externalId, s);
+      }
     });
+
+    // results stores studentId as an External ID (string)
+    // Check if any results have students not in our map
+    const externalIdsInResults = [...new Set(results.map(r => r.studentId))];
+    const missingExternalIds = externalIdsInResults.filter(id => !studentsByExternalId.has(id));
+
+    if (missingExternalIds.length > 0) {
+      const additionalStudents = await Promise.all(
+        missingExternalIds.map(async (extId) =>
+          ctx.db
+            .query("students")
+            .withIndex("by_externalId", (q) => q.eq("externalId", extId))
+            .unique()
+        )
+      );
+
+      additionalStudents.forEach(s => {
+        if (s) {
+          studentMap.set(s._id, s);
+          studentsByExternalId.set(s.externalId, s);
+        }
+      });
+    }
 
     // 5. Aggregate Stats
     const facultyStats = new Map<string, number>();
@@ -70,24 +94,35 @@ export const getStats = query({
     results.forEach(res => {
       if (!res.points || res.points <= 0) return;
 
-      const student = studentMap.get(res.studentId);
-      if (!student) return;
-
-      const faculty = student.faculty || "Unknown";
+      const isRelay = res.event.toLowerCase().includes("relay");
+      const student = studentsByExternalId.get(res.studentId);
+      
+      let faculty = "Unknown";
+      if (student) {
+        faculty = student.faculty || "Unknown";
+      } else if (isRelay) {
+        // For relays, studentId stores the faculty name
+        faculty = res.studentId;
+      } else {
+        // Skip results that can't be attributed to a student or faculty
+        return;
+      }
 
       // Faculty Score
       facultyStats.set(faculty, (facultyStats.get(faculty) || 0) + res.points);
 
-      // Student Score
-      if (!studentStats.has(student._id)) {
-        studentStats.set(student._id, {
-          id: student._id,
-          name: student.name,
-          faculty: faculty,
-          score: 0
-        });
+      // Student Score (Only for individual events)
+      if (student && !isRelay) {
+        if (!studentStats.has(student._id)) {
+          studentStats.set(student._id, {
+            id: student._id,
+            name: student.name,
+            faculty: faculty,
+            score: 0
+          });
+        }
+        studentStats.get(student._id)!.score += res.points;
       }
-      studentStats.get(student._id)!.score += res.points;
     });
 
     // Sort Leaders
@@ -100,7 +135,7 @@ export const getStats = query({
       .slice(0, 10); // Top 10
 
     return {
-      totalParticipants: uniqueStudentIds.length,
+      totalParticipants: studentMap.size,
       totalEntries,
       facultyLeaderboard,
       studentLeaderboard

@@ -41,7 +41,7 @@ type FormValues = {
   }[]
 }
 
-interface MobileRegistrationViewProps {
+interface MobileRegistrationFormProps {
   form: UseFormReturn<FormValues>
   fields: any[] // fields from useFieldArray
   remove: (index: number) => void
@@ -70,10 +70,9 @@ const MobileStudentItem = ({
     defaultValue: [],
   })
 
-  // Rule 1: Max 3 checks excluding the last column
-  // Identify the last event from availableEvents
-  const lastEvent = availableEvents[availableEvents.length - 1];
-  const eventsToCheckLimit = events ? events.filter(e => e !== lastEvent) : [];
+  // Rule: Max 3 individual events. Last 3 columns (typically relays) are excluded.
+  const eventsToExclude = availableEvents.slice(-3);
+  const eventsToCheckLimit = events ? events.filter(e => !eventsToExclude.includes(e)) : [];
   const isRowLimitExceeded = eventsToCheckLimit.length > 3;
 
   // Watch name for the trigger label
@@ -98,19 +97,26 @@ const MobileStudentItem = ({
 
           {events && events.length > 0 && (
             <div className="flex flex-wrap gap-1">
-              {events.slice(0, 3).map(event => (
-                <span
-                  key={event}
-                  className={cn(
-                    "inline-flex items-center rounded-full border-transparent px-2 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
-                    (isRowLimitExceeded || (columnCounts ? (columnCounts[event] || 0) > 2 : false))
-                      ? "bg-destructive/10 text-destructive"
-                      : (columnCounts ? (columnCounts[event] || 0) === 2 : false) ? "bg-green-500/10 text-green-500" : "bg-primary/10 text-primary"
-                  )}
-                >
-                  {event}
-                </span>
-              ))}
+              {events.slice(0, 3).map((event) => {
+                const limit = event.includes("Relay") ? 4 : 2;
+                const count = columnCounts ? (columnCounts[event] || 0) : 0;
+                const isColumnLimitExceeded = count > limit;
+                const isColumnFull = count === limit;
+
+                return (
+                  <span
+                    key={event}
+                    className={cn(
+                      "inline-flex items-center rounded-full border-transparent px-2 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+                      isColumnLimitExceeded || isRowLimitExceeded
+                        ? "bg-destructive/10 text-destructive"
+                        : isColumnFull ? "bg-green-500/10 text-green-500" : "bg-primary/10 text-primary"
+                    )}
+                  >
+                    {event.replace(/^([MW]):/, "")}
+                  </span>
+                );
+              })}
               {events.length > 3 && (
                 <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-muted text-muted-foreground">
                   +{events.length - 3}
@@ -149,9 +155,9 @@ const MobileStudentItem = ({
           <div className="space-y-2">
             <label className="text-sm font-medium mb-2 block">Events ({events?.length || 0})</label>
             <Combobox
-              items={availableEvents.map(e => ({ label: e, value: e }))}
+              items={availableEvents.map(e => ({ label: e.replace(/^([MW]):/, ""), value: e }))}
               multiple
-              value={(events || []).map(e => ({ label: e, value: e }))}
+              value={(events || []).map(e => ({ label: e.replace(/^([MW]):/, ""), value: e }))}
               onValueChange={(val) => {
                 form.setValue(`registrations.${index}.events`, val.map(v => v.value))
               }}
@@ -177,12 +183,9 @@ const MobileStudentItem = ({
                 <ComboboxEmpty>No events found.</ComboboxEmpty>
                 <ComboboxList>
                   {(item) => {
-                    // Check column limit for validation styling in the dropdown?
-                    // We can't easily style individual items based on external specific logic valid for "this" row 
-                    // unless we do the check here.
-                    // But 'item' here is generic.
-                    // Actually, we can access 'columnCounts' from closure.
-                    const isColumnLimitExceeded = columnCounts ? (columnCounts[item.value] || 0) > 2 : false;
+                    const limit = item.value.includes("Relay") ? 4 : 2;
+                    const count = columnCounts ? (columnCounts[item.value] || 0) : 0;
+                    const isColumnLimitExceeded = count > limit;
 
                     return (
                       <ComboboxItem
@@ -214,7 +217,7 @@ const MobileStudentItem = ({
   )
 }
 
-export function MobileRegistrationView({
+export function MobileRegistrationFrom({
   form,
   fields,
   remove,
@@ -222,7 +225,7 @@ export function MobileRegistrationView({
   columnCounts,
   selectedFaculty,
   availableEvents
-}: MobileRegistrationViewProps) {
+}: MobileRegistrationFormProps) {
   return (
     <div className="space-y-4">
       <div className="rounded-lg border bg-card text-card-foreground shadow-sm">

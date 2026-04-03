@@ -13,7 +13,8 @@ import { SWIM_EVENTS } from "@/types"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
-import { Loader2, Plus, Calendar as CalendarIcon, Archive, RefreshCcw, Pencil, Trash2 } from "lucide-react"
+import { Loader2, Plus, Calendar as CalendarIcon, Archive, RefreshCcw, Pencil, Trash2, Settings2 } from "lucide-react"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Id } from "@/convex/_generated/dataModel"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
@@ -24,7 +25,11 @@ interface Meet {
   date: string;
   events: string[];
   status?: string;
+  pointSystem?: number[];
+  eventPointSystems?: Record<string, number[]>;
 }
+
+const DEFAULT_POINT_SYSTEM = [7, 5, 4, 3, 2, 1];
 
 export default function MeetsPage() {
   const meets = useQuery(api.meets.getMeets)
@@ -43,8 +48,13 @@ export default function MeetsPage() {
   const [editName, setEditName] = useState("")
   const [editDate, setEditDate] = useState<Date | undefined>(undefined)
   const [editEvents, setEditEvents] = useState<string[]>([])
+  const [editPointSystem, setEditPointSystem] = useState<number[]>([...DEFAULT_POINT_SYSTEM])
+  const [editEventPointSystems, setEditEventPointSystems] = useState<Record<string, number[]>>({})
   const [isEditing, setIsEditing] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
+
+  const [newPointSystem, setNewPointSystem] = useState<number[]>([...DEFAULT_POINT_SYSTEM])
+  const [newEventPointSystems, setNewEventPointSystems] = useState<Record<string, number[]>>({})
 
   // Delete state
   const [deletingMeet, setDeletingMeet] = useState<Meet | null>(null)
@@ -59,9 +69,13 @@ export default function MeetsPage() {
         name: newMeetName,
         date: newMeetDate.toISOString(),
         events: selectedEvents,
+        pointSystem: newPointSystem,
+        eventPointSystems: newEventPointSystems,
       })
       setNewMeetName("")
       setNewMeetDate(undefined)
+      setNewPointSystem([...DEFAULT_POINT_SYSTEM])
+      setNewEventPointSystems({})
       // setSelectedEvents([...SWIM_EVENTS]) // Keep selection or reset?
     } catch (error) {
       console.error("Failed to create meet:", error)
@@ -75,19 +89,21 @@ export default function MeetsPage() {
     await updateStatus({ id, status: newStatus as "active" | "archived" })
   }
 
-  const toggleEvent = (event: string) => {
+  const toggleEvent = (gender: 'M' | 'W', baseEvent: string) => {
+    const fullEvent = `${gender}:${baseEvent}`
     setSelectedEvents(prev =>
-      prev.includes(event)
-        ? prev.filter(e => e !== event)
-        : [...prev, event]
+      prev.includes(fullEvent)
+        ? prev.filter(e => e !== fullEvent)
+        : [...prev, fullEvent]
     )
   }
 
-  const toggleEditEvent = (event: string) => {
+  const toggleEditEvent = (gender: 'M' | 'W', baseEvent: string) => {
+    const fullEvent = `${gender}:${baseEvent}`
     setEditEvents(prev =>
-      prev.includes(event)
-        ? prev.filter(e => e !== event)
-        : [...prev, event]
+      prev.includes(fullEvent)
+        ? prev.filter(e => e !== fullEvent)
+        : [...prev, fullEvent]
     )
   }
 
@@ -96,6 +112,8 @@ export default function MeetsPage() {
     setEditName(meet.name)
     setEditDate(new Date(meet.date))
     setEditEvents([...meet.events])
+    setEditPointSystem(meet.pointSystem || [...DEFAULT_POINT_SYSTEM])
+    setEditEventPointSystems(meet.eventPointSystems || {})
     setEditDialogOpen(true)
   }
 
@@ -108,6 +126,8 @@ export default function MeetsPage() {
         name: editName,
         date: editDate.toISOString(),
         events: editEvents,
+        pointSystem: editPointSystem,
+        eventPointSystems: editEventPointSystems,
       })
       setEditDialogOpen(false)
       setEditingMeet(null)
@@ -184,27 +204,127 @@ export default function MeetsPage() {
                 </PopoverContent>
               </Popover>
             </div>
-            <div className="space-y-2">
-              <Label>Events Included</Label>
-              <div className="grid grid-cols-2 gap-2 max-h-80 overflow-y-auto rounded-md p-2">
-                {SWIM_EVENTS.map(event => (
-                  <div key={event} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`event-${event}`}
-                      checked={selectedEvents.includes(event)}
-                      onCheckedChange={() => toggleEvent(event)}
-                    />
-                    <Label
-                      htmlFor={`event-${event}`}
-                      className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                    >
-                      {event}
-                    </Label>
-                  </div>
-                ))}
+            <div className="space-y-4">
+              <div className="rounded-md border bg-neutral-50/50">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="text-[10px] font-black uppercase tracking-widest h-10">Events Included</TableHead>
+                      <TableHead className="w-12 text-center text-[10px] font-black uppercase tracking-widest h-10 px-0">Men</TableHead>
+                      <TableHead className="w-12 text-center text-[10px] font-black uppercase tracking-widest h-10 px-0">Women</TableHead>
+                      <TableHead className="w-12 text-center text-[10px] font-black uppercase tracking-widest h-10 px-0">Pts</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody className="max-h-80 overflow-y-auto">
+                    {SWIM_EVENTS.map(event => {
+                      const mEvent = `M:${event}`;
+                      const wEvent = `W:${event}`;
+                      const mChecked = selectedEvents.includes(mEvent);
+                      const wChecked = selectedEvents.includes(wEvent);
+
+                      return (
+                        <TableRow key={event} className="group hover:bg-white border-b-0">
+                          <TableCell className="py-2 font-medium text-sm text-neutral-700">{event}</TableCell>
+                          
+                          <TableCell className="w-12 py-2 px-0 text-center">
+                            <Checkbox
+                              id={`event-m-${event}`}
+                              checked={mChecked}
+                              onCheckedChange={() => toggleEvent('M', event)}
+                              className="h-4 w-4 border-slate-300 mx-auto"
+                            />
+                          </TableCell>
+                          
+                          <TableCell className="w-12 py-2 px-0 text-center">
+                            <Checkbox
+                              id={`event-w-${event}`}
+                              checked={wChecked}
+                              onCheckedChange={() => toggleEvent('W', event)}
+                              className="h-4 w-4 border-slate-300 mx-auto"
+                            />
+                          </TableCell>
+
+                          <TableCell className="w-12 py-2 px-0 text-center">
+                            {(mChecked || wChecked) && (
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-6 w-6 opacity-40 hover:opacity-100 transition-opacity p-0 mx-auto">
+                                    <Settings2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-80 p-4" side="left">
+                                   <h4 className="font-black text-xs uppercase mb-1 text-neutral-400">Override Points</h4>
+                                   <p className="text-[10px] text-muted-foreground mb-4 uppercase tracking-tighter">Event: {event}</p>
+                                   <div className="grid grid-cols-4 gap-2">
+                                     {(newEventPointSystems[event] || newPointSystem).map((p, i) => (
+                                       <div key={i} className="space-y-1">
+                                         <Label className="text-[10px] uppercase font-bold text-neutral-400">R{i + 1}</Label>
+                                         <Input
+                                           value={p}
+                                           type="number"
+                                           className="h-7 text-[10px] p-1 font-medium"
+                                           onChange={(e) => {
+                                             const val = parseInt(e.target.value) || 0;
+                                             const curr = [...(newEventPointSystems[event] || newPointSystem)];
+                                             curr[i] = val;
+                                             setNewEventPointSystems(prev => ({ ...prev, [event]: curr }));
+                                           }}
+                                         />
+                                       </div>
+                                     ))}
+                                   </div>
+                                   <Button
+                                     variant="destructive"
+                                     size="sm"
+                                     className="w-full mt-4 h-7 text-[9px] uppercase font-black"
+                                     onClick={() => {
+                                       const next = { ...newEventPointSystems };
+                                       delete next[event];
+                                       setNewEventPointSystems(next);
+                                     }}
+                                   >
+                                     Reset to Default
+                                   </Button>
+                                </PopoverContent>
+                              </Popover>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
               </div>
             </div>
-            <Button onClick={handleCreate} disabled={isCreating || !newMeetName} className="w-full">
+
+            <div className="space-y-4 pt-2 border-t border-dashed">
+              <div>
+                <Label className="text-xs uppercase tracking-widest font-black opacity-40">Point System Configuration</Label>
+                <div className="grid grid-cols-4 gap-2 mt-3">
+                  {newPointSystem.map((points, idx) => (
+                    <div key={idx} className="space-y-1">
+                      <Label htmlFor={`points-${idx}`} className="text-[10px] uppercase font-bold text-neutral-400">
+                        Rank {idx + 1}
+                      </Label>
+                      <Input
+                        id={`points-${idx}`}
+                        type="number"
+                        className="h-8 text-xs font-medium p-2"
+                        value={points}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 0;
+                          const next = [...newPointSystem];
+                          next[idx] = val;
+                          setNewPointSystem(next);
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <Button onClick={handleCreate} disabled={isCreating || !newMeetName} className="w-full h-12 text-sm font-black uppercase tracking-widest bg-black text-white hover:bg-neutral-800 transition-all rounded-none shadow-[4px_4px_0px_black] active:shadow-none active:translate-x-[2px] active:translate-y-[2px]">
               {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
               Create Meet
             </Button>
@@ -317,24 +437,123 @@ export default function MeetsPage() {
                 </PopoverContent>
               </Popover>
             </div>
-            <div className="space-y-2">
-              <Label>Events Included ({editEvents.length} selected)</Label>
-              <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto rounded-md border p-2">
-                {SWIM_EVENTS.map(event => (
-                  <div key={event} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`edit-event-${event}`}
-                      checked={editEvents.includes(event)}
-                      onCheckedChange={() => toggleEditEvent(event)}
-                    />
-                    <Label
-                      htmlFor={`edit-event-${event}`}
-                      className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                    >
-                      {event}
-                    </Label>
-                  </div>
-                ))}
+            <div className="space-y-4">
+              <div className="rounded-md border bg-neutral-50/50">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="text-[10px] font-black uppercase tracking-widest h-10">Events Included ({editEvents.length})</TableHead>
+                      <TableHead className="w-12 text-center text-[10px] font-black uppercase tracking-widest h-10 px-0">Men</TableHead>
+                      <TableHead className="w-12 text-center text-[10px] font-black uppercase tracking-widest h-10 px-0">Women</TableHead>
+                      <TableHead className="w-12 text-center text-[10px] font-black uppercase tracking-widest h-10 px-0">Pts</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody className="max-h-60 overflow-y-auto">
+                    {SWIM_EVENTS.map(event => {
+                      const mEvent = `M:${event}`;
+                      const wEvent = `W:${event}`;
+                      const mChecked = editEvents.includes(mEvent);
+                      const wChecked = editEvents.includes(wEvent);
+
+                      return (
+                        <TableRow key={event} className="group hover:bg-white border-b-0">
+                          <TableCell className="py-2 font-medium text-sm text-neutral-700">{event}</TableCell>
+                          
+                          <TableCell className="w-12 py-2 px-0 text-center">
+                            <Checkbox
+                              id={`edit-event-m-${event}`}
+                              checked={mChecked}
+                              onCheckedChange={() => toggleEditEvent('M', event)}
+                              className="h-4 w-4 border-slate-300 mx-auto"
+                            />
+                          </TableCell>
+                          
+                          <TableCell className="w-12 py-2 px-0 text-center">
+                            <Checkbox
+                              id={`edit-event-w-${event}`}
+                              checked={wChecked}
+                              onCheckedChange={() => toggleEditEvent('W', event)}
+                              className="h-4 w-4 border-slate-300 mx-auto"
+                            />
+                          </TableCell>
+
+                          <TableCell className="w-12 py-2 px-0 text-center">
+                            {(mChecked || wChecked) && (
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-6 w-6 opacity-40 hover:opacity-100 transition-opacity p-0 mx-auto">
+                                    <Settings2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-80 p-4" side="left">
+                                   <h4 className="font-black text-xs uppercase mb-1 text-neutral-400">Override Points</h4>
+                                   <p className="text-[10px] text-muted-foreground mb-4 uppercase tracking-tighter">Event: {event}</p>
+                                   <div className="grid grid-cols-4 gap-2">
+                                     {(editEventPointSystems[event] || editPointSystem).map((p, i) => (
+                                       <div key={i} className="space-y-1">
+                                         <Label className="text-[10px] uppercase font-bold text-neutral-400">R{i + 1}</Label>
+                                         <Input
+                                           value={p}
+                                           type="number"
+                                           className="h-8 text-xs p-1 border-2 border-black rounded-none"
+                                           onChange={(e) => {
+                                             const val = parseInt(e.target.value) || 0;
+                                             const curr = [...(editEventPointSystems[event] || editPointSystem)];
+                                             curr[i] = val;
+                                             setEditEventPointSystems(prev => ({ ...prev, [event]: curr }));
+                                           }}
+                                         />
+                                       </div>
+                                     ))}
+                                   </div>
+                                   <Button
+                                     variant="destructive"
+                                     size="sm"
+                                     className="w-full mt-4 h-8 text-[10px] uppercase font-black tracking-widest rounded-none border-2 border-black shadow-[2px_2px_0px_black] active:translate-x-px active:translate-y-px active:shadow-none"
+                                     onClick={() => {
+                                       const next = { ...editEventPointSystems };
+                                       delete next[event];
+                                       setEditEventPointSystems(next);
+                                     }}
+                                   >
+                                     Remove Override
+                                   </Button>
+                                </PopoverContent>
+                              </Popover>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+
+            <div className="space-y-4 pt-2 border-t border-dashed">
+              <div>
+                <Label className="text-xs uppercase tracking-widest font-black opacity-40">Point System Configuration</Label>
+                <div className="grid grid-cols-4 gap-2 mt-3">
+                  {editPointSystem.map((points, idx) => (
+                    <div key={idx} className="space-y-1">
+                      <Label htmlFor={`edit-global-points-${idx}`} className="text-[10px] uppercase font-bold text-neutral-400">
+                        Rank {idx + 1}
+                      </Label>
+                      <Input
+                        id={`edit-global-points-${idx}`}
+                        type="number"
+                        className="h-8 text-xs font-medium p-2"
+                        value={points}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 0;
+                          const next = [...editPointSystem];
+                          next[idx] = val;
+                          setEditPointSystem(next);
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
