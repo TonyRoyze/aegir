@@ -23,9 +23,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { SWIM_EVENTS, FACULTIES } from "@/types"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
-import { MobileRegistrationView } from "./MobileRegistrationView"
+import { MobileRegistrationFrom } from "./MobileRegistrationForm"
 import { useQuery, useMutation } from "convex/react"
 import { api } from "@/convex/_generated/api"
 
@@ -71,10 +72,9 @@ const RegistrationRow = ({
     defaultValue: [],
   })
 
-  // Rule 1: Max 3 checks excluding the last column
-  // Identify the last event from availableEvents
-  const lastEvent = availableEvents[availableEvents.length - 1];
-  const eventsToCheckLimit = events ? events.filter(e => e !== lastEvent) : [];
+  // Rule: Max 3 individual events. Last 3 columns (typically relays) are excluded.
+  const eventsToExclude = availableEvents.slice(-3);
+  const eventsToCheckLimit = events ? events.filter(e => !eventsToExclude.includes(e)) : [];
   const isRowLimitExceeded = eventsToCheckLimit.length > 3;
 
   const toggleEvent = (event: string) => {
@@ -85,6 +85,11 @@ const RegistrationRow = ({
       form.setValue(`registrations.${index}.events`, [...current, event])
     }
   }
+
+  const getColumnLimitForEvent = (event: string) => {
+    if (event.includes("Relay")) return 4;
+    return 2; // Default for IM and other individual events
+  };
 
   return (
     <TableRow className={cn("hover:bg-transparent break-inside-avoid", isRowLimitExceeded && "bg-destructive/10")}>
@@ -110,7 +115,9 @@ const RegistrationRow = ({
         />
       </TableCell>
       {availableEvents.map((event) => {
-        const isColumnLimitExceeded = (columnCounts[event] || 0) > 2;
+        const limit = getColumnLimitForEvent(event);
+        const count = columnCounts[event] || 0;
+        const isColumnLimitExceeded = count > limit;
         const isChecked = events && events.includes(event);
 
         return (
@@ -155,9 +162,12 @@ export function RegistrationForm() {
 
   const meets = useQuery(api.meets.getMeets)
 
-  // Derived state for current meet events
+  // Derived state for current meet events (filtered by gender)
   const selectedMeet = meets?.find(m => m._id === selectedMeetId)
-  const meetEvents = selectedMeet?.events || SWIM_EVENTS
+  const genderPrefix = activeTab === "Male" ? "M:" : "W:"
+
+  const meetEvents = (selectedMeet?.events || SWIM_EVENTS.map(e => `${genderPrefix}${e}`))
+    .filter(e => e.startsWith(genderPrefix))
 
   // Auto-select first active meet if none selected
   useEffect(() => {
@@ -298,7 +308,7 @@ export function RegistrationForm() {
   };
 
   return (
-    <div className="space-y-4 p-6 md:p-8">
+    <div className="space-y-4 border rounded-lg p-4">
       {/* Controls */}
       <div className="flex flex-col md:flex-row items-center justify-between print:hidden gap-4">
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
@@ -322,26 +332,12 @@ export function RegistrationForm() {
             </SelectContent>
           </Select>
 
-          <div className="flex space-x-1 rounded-lg bg-muted p-1">
-            <button
-              onClick={() => setActiveTab("Male")}
-              className={cn(
-                "px-3 py-1.5 text-sm font-medium rounded-md transition-all",
-                activeTab === "Male" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:bg-background/50"
-              )}
-            >
-              Men
-            </button>
-            <button
-              onClick={() => setActiveTab("Female")}
-              className={cn(
-                "px-3 py-1.5 text-sm font-medium rounded-md transition-all",
-                activeTab === "Female" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:bg-background/50"
-              )}
-            >
-              Women
-            </button>
-          </div>
+          <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as "Male" | "Female")}>
+            <TabsList className="h-9">
+              <TabsTrigger value="Male" className="px-4">Men</TabsTrigger>
+              <TabsTrigger value="Female" className="px-4">Women</TabsTrigger>
+            </TabsList>
+          </Tabs>
           <Select value={selectedFaculty} onValueChange={setSelectedFaculty}>
             <SelectTrigger className="w-[120px]">
               <SelectValue placeholder="Select faculty" />
@@ -370,7 +366,9 @@ export function RegistrationForm() {
               <TableHead className="border-r w-36 print:hidden">Name in Use</TableHead>
               <TableHead className="border-r w-52 print:text-black">Reg. No</TableHead>
               {meetEvents.map((event) => {
-                const isColumnFull = (columnCounts[event] || 0) > 2;
+                const limit = event.includes("Relay") ? 4 : 2;
+                const count = columnCounts[event] || 0;
+                const isColumnFull = count > limit;
                 return (
                   <TableHead
                     className={cn(
@@ -380,7 +378,7 @@ export function RegistrationForm() {
                     key={event}
                   >
                     <span className="block w-6 whitespace-nowrap [writing-mode:vertical-rl] rotate-180 mx-auto print:text-xs">
-                      {event}
+                      {event.replace(/^([MW]):/, "")}
                     </span>
                   </TableHead>
                 )
@@ -456,7 +454,7 @@ export function RegistrationForm() {
           </div>
         ) : (
           <>
-            <MobileRegistrationView
+            <MobileRegistrationFrom
               form={form}
               fields={fields}
               remove={remove}

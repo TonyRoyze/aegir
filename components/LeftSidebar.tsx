@@ -15,16 +15,13 @@ import {
 import { Menu, Home, UserPlus, Clock, BookImage, Calendar, ListOrdered } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-// You might not have use-media-query hook, standard drawer usage handles responsiveness mostly by being conditional or using 'vaul' logic?
-// Actually shadcn Drawer is often used for mobile dialogs.
-// Let's implement the responsive structure.
 
 const NAV_ITEMS = [
   { label: 'Home', href: '/', icon: Home },
   { label: 'Register', href: '/register', icon: UserPlus },
   { label: 'Event Order', href: '/event_order', icon: ListOrdered },
-  { label: 'Meets', href: '/meets', icon: Calendar },
   { label: 'Timing', href: '/timing', icon: Clock },
+  { label: 'Meets', href: '/meets', icon: Calendar },
   { label: 'Gallery', href: '/gallery', icon: BookImage },
 ]
 
@@ -53,7 +50,7 @@ function NavLinks() {
   )
 }
 
-export function Header() {
+export function LeftSidebar() {
   return (
     <>
       {/* Desktop Sidebar */}
@@ -66,7 +63,7 @@ export function Header() {
         <NavLinks />
       </aside>
 
-      {/* Mobile Header with Drawer */}
+      {/* Mobile Drawer */}
       <div className="md:hidden fixed bottom-4 right-4 z-50 print:hidden">
         <Drawer>
           <DrawerTrigger asChild>
