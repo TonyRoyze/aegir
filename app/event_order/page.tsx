@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import { useQuery, useMutation } from "convex/react"
 import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Printer, Loader2, RefreshCcw, Download } from "lucide-react"
+import { GripVertical, Loader2, RefreshCcw, Download } from "lucide-react"
 import { MeetProgram } from "@/components/print/meet-program"
 
 // Sortable Item Component
@@ -45,7 +45,6 @@ export default function EventOrderPage() {
 
   // Derive local state for optimistic updates or just to handle sorting
   const [orderedEvents, setOrderedEvents] = useState<string[]>([]);
-  const [downloading, setDownloading] = useState(false);
 
   // Set initial selected meet
   useEffect(() => {
@@ -94,36 +93,56 @@ export default function EventOrderPage() {
     }
   };
 
-  const handlePrint = async () => {
-    if (!selectedMeetId) return;
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    if (!selectedMeet) return;
     setDownloading(true);
     try {
-      const response = await fetch(`/api/print/meet-order/${selectedMeetId}`);
-      if (!response.ok) throw new Error('Failed to generate PDF');
+      const response = await fetch('/api/meet-program-pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          meet: {
+            name: selectedMeet.name,
+            events: selectedMeet.events,
+          },
+          registrations: registrations || [],
+          orderedEvents,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`PDF request failed with status ${response.status}`);
+      }
 
       const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+
+      const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `Meet Order ${selectedMeet?.name || 'document'}.pdf`;
+      link.download = `${selectedMeet.name} - Start List.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      URL.revokeObjectURL(url);
     } catch (error) {
-      console.error(error);
-      alert("Failed to download PDF");
+      console.error('PDF generation failed:', error);
+      alert('Failed to generate PDF. Please try again.');
     } finally {
       setDownloading(false);
     }
   };
+
 
   if (!meets) return <div className="flex items-center justify-center min-h-screen text-muted-foreground"><Loader2 className="animate-spin mr-2" /> Loading...</div>;
 
   return (
     <div className="flex h-screen bg-background font-sans text-neutral-900">
       {/* Left Main Content - Preview Area */}
-      <div className="flex-1 overflow-auto bg-slate-100 p-8 hidden xl:block custom-scrollbar">
+      <div className="flex-1 overflow-auto bg-slate-100 p-8 hidden xl:block print:block print:p-0 print:bg-white custom-scrollbar">
         <MeetProgram
           meet={selectedMeet || { name: 'Meet Name', events: [] }}
           registrations={registrations || []}
@@ -150,9 +169,18 @@ export default function EventOrderPage() {
               </Select>
             </div>
 
-            <Button onClick={handlePrint} disabled={downloading} className="w-full gap-2 font-semibold shadow-sm" size="lg">
-              {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-              {downloading ? "Generating PDF..." : "Download PDF"}
+            <Button
+              onClick={handleDownloadPdf}
+              disabled={downloading || !selectedMeet}
+              className="w-full gap-2 font-semibold shadow-sm"
+              size="lg"
+            >
+              {downloading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              {downloading ? 'Generating PDF...' : 'Download PDF'}
             </Button>
           </div>
         </div>

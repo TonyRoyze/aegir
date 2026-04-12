@@ -2,17 +2,12 @@
 
 import { useMemo } from "react"
 import { CheckIcon } from "lucide-react"
+import type { RegistrationSheetDocumentData, RegistrationSheetRegistration } from "@/lib/registration-sheet-pdf"
 
 interface RegistrationSheetProps {
-  meet: {
-    name: string;
-    events: string[];
-  };
-  registrations: any[];
-  filters: {
-    gender: "Male" | "Female";
-    faculty: string;
-  };
+  meet: RegistrationSheetDocumentData["meet"];
+  registrations: RegistrationSheetRegistration[];
+  filters: RegistrationSheetDocumentData["filters"];
 }
 
 export function RegistrationSheet({ meet, registrations, filters }: RegistrationSheetProps) {
@@ -28,7 +23,10 @@ export function RegistrationSheet({ meet, registrations, filters }: Registration
   const currentYear = new Date().getFullYear();
 
   return (
-    <div id="printable-content" className="mx-auto max-w-[297mm] min-h-[210mm] bg-white p-6">
+    <div
+      id="printable-content"
+      className="registration-sheet-page mx-auto max-w-[297mm] min-h-[210mm] bg-white px-6 py-5"
+    >
       {/* Header */}
       <div className="text-center mb-4">
         <h1 className="text-xl font-bold italic">Inter-Faculty Swimming Championship - {currentYear}</h1>
@@ -147,20 +145,20 @@ export function RegistrationSheet({ meet, registrations, filters }: Registration
       </div>
 
       {/* Signatures Section */}
-      <div className="mt-8 text-xs flex justify-between items-end">
-        <div>
-          <span className="border-b border-dotted border-black inline-block min-w-[150px]"></span>
-          <p className="mt-1">Instructor /PE (Faculty Representative)</p>
+      <div className="mt-8 grid grid-cols-[1.1fr_1.35fr_110px] items-end gap-8 text-xs">
+        <div className="flex flex-col items-start">
+          <span className="inline-block w-full border-b border-dotted border-black"></span>
+          <p className="mt-2 leading-tight">Instructor /PE (Faculty Representative)</p>
         </div>
-        <div className="flex items-end gap-8">
-          <div className="text-center">
-            <span className="border-b border-dotted border-black inline-block min-w-[200px]"></span>
-            <p className="mt-1">Signature of Dean / Director / AR</p>
-          </div>
-          <div className="text-center">
-            <div className="w-20 h-20 border border-dashed border-black"></div>
-            <p className="mt-1">Stamp</p>
-          </div>
+
+        <div className="flex flex-col items-center">
+          <span className="inline-block w-full border-b border-dotted border-black"></span>
+          <p className="mt-2 text-center leading-tight">Signature of Dean / Director / AR</p>
+        </div>
+
+        <div className="flex flex-col items-center justify-end">
+          <div className="h-20 w-20 border border-dashed border-black"></div>
+          <p className="mt-2 text-center">Stamp</p>
         </div>
       </div>
 

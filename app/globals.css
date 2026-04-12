@@ -120,3 +120,28 @@
     @apply bg-background text-foreground;
   }
 }
+
+@media print {
+  @page {
+    size: A4;
+    margin: 15mm;
+  }
+
+  @page registration-sheet {
+    size: A4 landscape;
+    margin: 15mm;
+  }
+
+  html,
+  body {
+    background: white;
+  }
+}
+
+.paper-break-avoid {
+  break-inside: avoid;
+}
+
+.registration-sheet-page {
+  page: registration-sheet;
+}

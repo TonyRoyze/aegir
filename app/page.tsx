@@ -18,6 +18,7 @@ import { Id } from "@/convex/_generated/dataModel"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Progress } from "@/components/ui/progress"
 
+
 // Helper
 const formatTime = (ms: number | undefined | null) => {
   if (ms === undefined || ms === null || ms === 0) return "-";
@@ -62,9 +63,9 @@ export default function DashboardPage() {
             <h1 className="text-3xl font-bold tracking-tight">Live Dashboard & Statistics</h1>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 print:hidden">
           <Select value={selectedMeetId || ""} onValueChange={(value) => setSelectedMeetId(value)}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger className="w-48">
               <SelectValue placeholder="Select a meet" />
             </SelectTrigger>
             <SelectContent>

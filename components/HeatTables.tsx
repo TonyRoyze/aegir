@@ -3,8 +3,7 @@
 import { useMemo, useState, useEffect } from "react"
 import Image from "next/image"
 import { Input } from "@/components/ui/input"
-
-const LANES_PER_HEAT = 6;
+import { assignToHeats, LANES_PER_HEAT } from "@/lib/swimming-utils"
 
 // --- Helpers ---
 
@@ -22,16 +21,18 @@ const getParts = (ms: number | undefined | null) => {
 
 // --- Row Component ---
 
-function StudentRow({ 
-  student, 
-  eventName, 
-  allResults, 
-  onSave, 
-  savingId, 
-  laneIndex 
+function StudentRow({
+  student,
+  eventName,
+  isRelayEvent,
+  allResults,
+  onSave,
+  savingId,
+  laneIndex
 }: {
   student: any;
   eventName: string;
+  isRelayEvent: boolean;
   allResults: any[];
   onSave: (studentId: string, ms: number) => Promise<void>;
   savingId: string | null;
@@ -82,11 +83,13 @@ function StudentRow({
     <div className="flex border-b border-black last:border-0 h-9 transition-colors hover:bg-slate-50/50">
       <div className="w-12 border-r border-black p-1 flex items-center justify-center font-bold text-neutral-800">{laneIndex + 1}</div>
       <div className="flex-1 border-r border-black p-1 flex items-center px-3 font-medium text-neutral-900 truncate">
-        {student?.name || ""}
+        {isRelayEvent ? (student?.faculty || "") : (student?.name || "")}
       </div>
-      <div className="w-24 border-r border-black p-1 flex items-center justify-center font-medium text-neutral-900">
-        {student?.faculty || ""}
-      </div>
+      {!isRelayEvent && (
+        <div className="w-24 border-r border-black p-1 flex items-center justify-center font-medium text-neutral-900">
+          {student?.faculty || ""}
+        </div>
+      )}
       <div className="w-24 border-r border-black p-1 flex items-center justify-center gap-0.5 bg-slate-50/30">
         {student ? (
           <>
@@ -164,7 +167,7 @@ export function HeatTables({ meet, registrations, orderedEvents, allResults, onS
       const isRelay = eventName.toLowerCase().includes("relay");
 
       let studentsToProcess = allParticipants;
-      
+
       if (isRelay) {
         // For relays, we group by faculty to show one row per team
         const facultyTeams = new Map<string, any>();
@@ -189,15 +192,10 @@ export function HeatTables({ meet, registrations, orderedEvents, allResults, onS
 
       const groups: { label: string; heats: any[][] }[] = [];
 
-      // Sort and chunk helper
+      // Balanced heats helper
       const processGroup = (groupStudents: any[], label: string) => {
         const sorted = [...groupStudents].sort((a: any, b: any) => a.name.localeCompare(b.name));
-        const heats = [];
-        if (sorted.length > 0) {
-          for (let i = 0; i < sorted.length; i += LANES_PER_HEAT) {
-            heats.push(sorted.slice(i, i + LANES_PER_HEAT));
-          }
-        }
+        const heats = assignToHeats(sorted, LANES_PER_HEAT);
         if (heats.length > 0) {
           groups.push({ label, heats });
         }
@@ -244,69 +242,75 @@ export function HeatTables({ meet, registrations, orderedEvents, allResults, onS
 
       {/* Events List */}
       <div className="space-y-10 print:space-y-8">
-        {eventsData.map((event) => (
-          <div key={event.name} className="break-inside-avoid">
-            {/* Event Header */}
-            <div className="mb-4">
-              <div className="border border-black border-b-0 inline-block px-3 py-1 font-bold text-sm bg-neutral-100 print:bg-neutral-100 print:print-color-adjust-exact">
-                Event No: {String(event.number).padStart(2, '0')}
+        {eventsData.map((event) => {
+          const isRelayEvent = event.name.toLowerCase().includes("relay");
+          return (
+            <div key={event.name} className="break-inside-avoid">
+              {/* Event Header */}
+              <div className="mb-4">
+                <div className="border border-black border-b-0 inline-block px-3 py-1 font-bold text-sm bg-neutral-100 print:bg-neutral-100 print:print-color-adjust-exact">
+                  Event No: {String(event.number).padStart(2, '0')}
+                </div>
+                <div className="border border-black px-3 py-2 font-bold text-lg bg-white">
+                  Event: {event.name}
+                </div>
               </div>
-              <div className="border border-black px-3 py-2 font-bold text-lg bg-white">
-                Event: {event.name}
-              </div>
-            </div>
 
-            {/* Groups (Men/Women) */}
-            {event.groups.map((group, groupIndex) => (
-              <div key={groupIndex} className="mt-4">
-                {group.label && (
-                  <h3 className="font-bold text-md mb-2 uppercase tracking-wide text-neutral-800 border-b border-black w-max pb-0.5">{group.label}</h3>
-                )}
+              {/* Groups (Men/Women) */}
+              {event.groups.map((group, groupIndex) => (
+                <div key={groupIndex} className="mt-4">
+                  {group.label && (
+                    <h3 className="font-bold text-md mb-2 uppercase tracking-wide text-neutral-800 border-b border-black w-max pb-0.5">{group.label}</h3>
+                  )}
 
-                {/* Heats for this group */}
-                {group.heats.map((heat, heatIndex) => (
-                  <div key={heatIndex} className="mt-4 text-sm first:mt-2">
-                    <div className="font-bold mb-1 pl-1 text-neutral-700">Heat {String(heatIndex + 1).padStart(2, '0')}</div>
-                    <div className="w-full border border-black text-left text-xs">
-                      {/* Table Header */}
-                      <div className="flex border-b border-black font-bold bg-neutral-100 print:bg-neutral-100 print:print-color-adjust-exact text-neutral-900">
-                        <div className="w-12 border-r border-black p-2 text-center">Lane</div>
-                        <div className="flex-1 border-r border-black p-2">Name</div>
-                        <div className="w-24 border-r border-black p-2 text-center">Faculty</div>
-                        <div className="w-24 border-r border-black p-2 text-center">Timing</div>
-                        <div className="w-16 border-r border-black p-2 text-center">Place</div>
-                        <div className="w-16 p-2 text-center">Points</div>
+                  {/* Heats for this group */}
+                  {group.heats.map((heat, heatIndex) => (
+                    <div key={heatIndex} className="mt-4 text-sm first:mt-2">
+                      <div className="font-bold mb-1 pl-1 text-neutral-700">Heat {String(heatIndex + 1).padStart(2, '0')}</div>
+                      <div className="w-full border border-black text-left text-xs">
+                        {/* Table Header */}
+                        <div className="flex border-b border-black font-bold bg-neutral-100 print:bg-neutral-100 print:print-color-adjust-exact text-neutral-900">
+                          <div className="w-12 border-r border-black p-2 text-center">Lane</div>
+                          <div className="flex-1 border-r border-black p-2">{isRelayEvent ? "Faculty" : "Name"}</div>
+                          {!isRelayEvent && (
+                            <div className="w-24 border-r border-black p-2 text-center">Faculty</div>
+                          )}
+                          <div className="w-24 border-r border-black p-2 text-center">Timing</div>
+                          <div className="w-16 border-r border-black p-2 text-center">Place</div>
+                          <div className="w-16 p-2 text-center">Points</div>
+                        </div>
+
+                        {/* Rows */}
+                        {Array.from({ length: LANES_PER_HEAT }).map((_, laneIndex) => {
+                          const student = heat[laneIndex];
+                          return (
+                            <StudentRow
+                              key={laneIndex}
+                              student={student}
+                              eventName={event.name}
+                              isRelayEvent={isRelayEvent}
+                              allResults={allResults}
+                              onSave={(studentId, ms) => onSave(event.name, studentId, ms)}
+                              savingId={savingId}
+                              laneIndex={laneIndex}
+                            />
+                          );
+                        })}
                       </div>
-
-                      {/* Rows */}
-                      {Array.from({ length: LANES_PER_HEAT }).map((_, laneIndex) => {
-                        const student = heat[laneIndex];
-                        return (
-                          <StudentRow
-                            key={laneIndex}
-                            student={student}
-                            eventName={event.name}
-                            allResults={allResults}
-                            onSave={(studentId, ms) => onSave(event.name, studentId, ms)}
-                            savingId={savingId}
-                            laneIndex={laneIndex}
-                          />
-                        );
-                      })}
                     </div>
-                  </div>
-                ))}
-              </div>
-            ))}
+                  ))}
+                </div>
+              ))}
 
-            {/* Empty state fallback */}
-            {event.groups.length === 0 && (
-              <div className="text-center py-2 text-muted-foreground italic text-xs">
-                No participants registered
-              </div>
-            )}
-          </div>
-        ))}
+              {/* Empty state fallback */}
+              {event.groups.length === 0 && (
+                <div className="text-center py-2 text-muted-foreground italic text-xs">
+                  No participants registered
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
     </div>
   )
