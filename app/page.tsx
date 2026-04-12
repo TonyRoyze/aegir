@@ -18,6 +18,7 @@ import { Id } from "@/convex/_generated/dataModel"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Progress } from "@/components/ui/progress"
 
+
 // Helper
 const formatTime = (ms: number | undefined | null) => {
   if (ms === undefined || ms === null || ms === 0) return "-";
@@ -62,9 +63,9 @@ export default function DashboardPage() {
             <h1 className="text-3xl font-bold tracking-tight">Live Dashboard & Statistics</h1>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 print:hidden">
           <Select value={selectedMeetId || ""} onValueChange={(value) => setSelectedMeetId(value)}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger className="w-48">
               <SelectValue placeholder="Select a meet" />
             </SelectTrigger>
             <SelectContent>
@@ -221,10 +222,20 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex flex-col sm:flex-row items-center gap-4">
                   {/* Gender Selector */}
-                  <Tabs value={selectedGender} onValueChange={(val) => {
-                    setSelectedGender(val as "Male" | "Female")
-                    setSelectedEventStanding("") // Reset event when changing gender
-                  }}>
+                  <Tabs value={selectedGender}
+                    onValueChange={(val) => {
+                      const nextGender = val as "Male" | "Female";
+                      const oldPrefix = selectedGender === "Male" ? "M:" : "W:";
+                      const newPrefix = nextGender === "Male" ? "M:" : "W:";
+
+                      setSelectedGender(nextGender);
+
+                      // Try to find the same event for the other gender instead of just clearing it
+                      if (selectedEventStanding) {
+                        const eventName = selectedEventStanding.replace(oldPrefix, "");
+                        setSelectedEventStanding(`${newPrefix}${eventName}`);
+                      }
+                    }}>
                     <TabsList className="h-9">
                       <TabsTrigger value="Male" className="px-4 text-xs font-semibold">Men</TabsTrigger>
                       <TabsTrigger value="Female" className="px-4 text-xs font-semibold">Women</TabsTrigger>

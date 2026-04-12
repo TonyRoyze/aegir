@@ -3,7 +3,7 @@
 import { useMemo } from "react"
 import Image from "next/image"
 
-const LANES_PER_HEAT = 6;
+import { assignToHeats, LANES_PER_HEAT } from "@/lib/swimming-utils"
 
 interface MeetProgramProps {
   meet: {
@@ -35,22 +35,40 @@ export function MeetProgram({ meet, registrations, orderedEvents }: MeetProgramP
 
     return orderedEvents.map((eventName, index) => {
       const students = map.get(eventName) || [];
+      const isRelay = eventName.toLowerCase().includes("relay");
+
+      let studentsToProcess = students;
+
+
+      if (isRelay) {
+        // For relays, we group by faculty to show one row per team
+        const facultyTeams = new Map<string, any>();
+        students.forEach(s => {
+          const faculty = s.faculty || "Unknown";
+          if (!facultyTeams.has(faculty)) {
+            facultyTeams.set(faculty, {
+              _id: faculty, // Use faculty as ID for timing/results
+              name: faculty,
+              faculty: faculty,
+              gender: s.gender, // Carry over gender for grouping
+              isRelay: true
+            });
+          }
+        });
+        studentsToProcess = Array.from(facultyTeams.values());
+      }
+
 
       // Split by gender
-      const men = students.filter((s: any) => s.gender === 'Male');
-      const women = students.filter((s: any) => s.gender === 'Female');
+      const men = studentsToProcess.filter((s: any) => s.gender === 'Male');
+      const women = studentsToProcess.filter((s: any) => s.gender === 'Female');
 
       const groups: { label: string; heats: any[][] }[] = [];
 
-      // Sort and chunk helper
+      // Balanced heats helper
       const processGroup = (groupStudents: any[], label: string) => {
         const sorted = [...groupStudents].sort((a: any, b: any) => a.name.localeCompare(b.name));
-        const heats = [];
-        if (sorted.length > 0) {
-          for (let i = 0; i < sorted.length; i += LANES_PER_HEAT) {
-            heats.push(sorted.slice(i, i + LANES_PER_HEAT));
-          }
-        }
+        const heats = assignToHeats(sorted, LANES_PER_HEAT);
         if (heats.length > 0) {
           groups.push({ label, heats });
         }
@@ -61,10 +79,10 @@ export function MeetProgram({ meet, registrations, orderedEvents }: MeetProgramP
       if (men.length > 0) processGroup(men, "Men");
 
       // Fallback
-      if (students.length === 0) {
+      if (studentsToProcess.length === 0) {
         groups.push({ label: "", heats: [[]] });
       } else if (groups.length === 0) {
-        const others = students.filter((s: any) => s.gender !== 'Male' && s.gender !== 'Female');
+        const others = studentsToProcess.filter((s: any) => s.gender !== 'Male' && s.gender !== 'Female');
         if (others.length > 0) processGroup(others, "Participants");
       }
 
@@ -98,11 +116,14 @@ export function MeetProgram({ meet, registrations, orderedEvents }: MeetProgramP
 
       {/* Events List */}
       <div className="space-y-10 print:space-y-8">
-        {eventsData.map((event) => (
-          <div key={event.name} className="break-inside-avoid">
+        {eventsData.map((event) => {
+          const isRelayEvent = event.name.toLowerCase().includes("relay");
+
+          return (
+            <div key={event.name} className="break-inside-avoid">
             {/* Event Header */}
             <div className="mb-4">
-              <div className="border border-black border-b-0 inline-block px-3 py-1 font-bold text-sm bg-neutral-100 print:bg-neutral-100 print:print-color-adjust-exact">
+              <div className="border border-black border-b-0 inline-block px-4 py-1 font-bold text-sm bg-neutral-100 print:bg-neutral-100 print:print-color-adjust-exact">
                 Event No: {String(event.number).padStart(2, '0')}
               </div>
               <div className="border border-black px-3 py-2 font-bold text-lg bg-white">
@@ -125,8 +146,10 @@ export function MeetProgram({ meet, registrations, orderedEvents }: MeetProgramP
                       {/* Table Header */}
                       <div className="flex border-b border-black font-bold bg-neutral-100 print:bg-neutral-100 print:print-color-adjust-exact text-neutral-900">
                         <div className="w-12 border-r border-black p-2 text-center">Lane</div>
-                        <div className="flex-1 border-r border-black p-2">Name</div>
-                        <div className="w-24 border-r border-black p-2 text-center">Faculty</div>
+                        <div className="flex-1 border-r border-black p-2">{isRelayEvent ? "Faculty" : "Name"}</div>
+                        {!isRelayEvent && (
+                          <div className="w-24 border-r border-black p-2 text-center">Faculty</div>
+                        )}
                         <div className="w-24 border-r border-black p-2 text-center">Timing</div>
                         <div className="w-16 p-2 text-center">Place</div>
                       </div>
@@ -139,11 +162,13 @@ export function MeetProgram({ meet, registrations, orderedEvents }: MeetProgramP
                           <div key={laneIndex} className="flex border-b border-black last:border-0 h-9">
                             <div className="w-12 border-r border-black p-1 flex items-center justify-center font-bold text-neutral-800">{rowNum}</div>
                             <div className="flex-1 border-r border-black p-1 flex items-center px-3 font-medium text-neutral-900">
-                              {student?.name || ""}
+                              {isRelayEvent ? (student?.faculty || "") : (student?.name || "")}
                             </div>
-                            <div className="w-24 border-r border-black p-1 flex items-center justify-center font-medium text-neutral-900">
-                              {student?.faculty || ""}
-                            </div>
+                            {!isRelayEvent && (
+                              <div className="w-24 border-r border-black p-1 flex items-center justify-center font-medium text-neutral-900">
+                                {student?.faculty || ""}
+                              </div>
+                            )}
                             <div className="w-24 border-r border-black p-1"></div>
                             <div className="w-16 p-1"></div>
                           </div>
@@ -161,8 +186,9 @@ export function MeetProgram({ meet, registrations, orderedEvents }: MeetProgramP
                 No participants registered
               </div>
             )}
-          </div>
-        ))}
+            </div>
+          );
+        })}
       </div>
     </div>
   )

@@ -9,8 +9,10 @@
  */
 
 import type * as albums from "../albums.js";
+import type * as auth from "../auth.js";
 import type * as cleanup from "../cleanup.js";
 import type * as dashboard from "../dashboard.js";
+import type * as debug from "../debug.js";
 import type * as meets from "../meets.js";
 import type * as registrations from "../registrations.js";
 import type * as results from "../results.js";
@@ -23,8 +25,10 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   albums: typeof albums;
+  auth: typeof auth;
   cleanup: typeof cleanup;
   dashboard: typeof dashboard;
+  debug: typeof debug;
   meets: typeof meets;
   registrations: typeof registrations;
   results: typeof results;

@@ -489,18 +489,18 @@ export default function MeetsPage() {
                                    <h4 className="font-black text-xs uppercase mb-1 text-neutral-400">Override Points</h4>
                                    <p className="text-[10px] text-muted-foreground mb-4 uppercase tracking-tighter">Event: {event}</p>
                                    <div className="grid grid-cols-4 gap-2">
-                                     {(editEventPointSystems[event] || editPointSystem).map((p, i) => (
+                                     {(newEventPointSystems[event] || newPointSystem).map((p, i) => (
                                        <div key={i} className="space-y-1">
                                          <Label className="text-[10px] uppercase font-bold text-neutral-400">R{i + 1}</Label>
                                          <Input
                                            value={p}
                                            type="number"
-                                           className="h-8 text-xs p-1 border-2 border-black rounded-none"
+                                           className="h-7 text-[10px] p-1 font-medium"
                                            onChange={(e) => {
                                              const val = parseInt(e.target.value) || 0;
                                              const curr = [...(editEventPointSystems[event] || editPointSystem)];
                                              curr[i] = val;
-                                             setEditEventPointSystems(prev => ({ ...prev, [event]: curr }));
+                                             setNewEventPointSystems(prev => ({ ...prev, [event]: curr }));
                                            }}
                                          />
                                        </div>
@@ -509,14 +509,14 @@ export default function MeetsPage() {
                                    <Button
                                      variant="destructive"
                                      size="sm"
-                                     className="w-full mt-4 h-8 text-[10px] uppercase font-black tracking-widest rounded-none border-2 border-black shadow-[2px_2px_0px_black] active:translate-x-px active:translate-y-px active:shadow-none"
+                                     className="w-full mt-4 h-7 text-[9px] uppercase font-black"
                                      onClick={() => {
-                                       const next = { ...editEventPointSystems };
+                                       const next = { ...newEventPointSystems };
                                        delete next[event];
-                                       setEditEventPointSystems(next);
+                                       setNewEventPointSystems(next);
                                      }}
                                    >
-                                     Remove Override
+                                     Reset to Default
                                    </Button>
                                 </PopoverContent>
                               </Popover>

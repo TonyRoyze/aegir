@@ -12,8 +12,9 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer"
-import { Menu, Home, UserPlus, Clock, BookImage, Calendar, ListOrdered } from 'lucide-react';
+import { Menu, Home, UserPlus, Users, Clock, BookImage, Calendar, ListOrdered, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/components/AuthProvider';
 
 
 const NAV_ITEMS = [
@@ -27,10 +28,17 @@ const NAV_ITEMS = [
 
 function NavLinks() {
   const pathname = usePathname();
+  const { user } = useAuth();
+
+  const navItems = [...NAV_ITEMS];
+  if (user?.role === "super_admin") {
+    navItems.push({ label: 'Users', href: '/users', icon: Users });
+  }
+  
 
   return (
     <nav className="flex flex-col gap-2 p-4">
-      {NAV_ITEMS.map((item) => {
+      {navItems.map((item) => {
         const isActive = pathname === item.href;
         return (
           <Link
@@ -51,6 +59,7 @@ function NavLinks() {
 }
 
 export function LeftSidebar() {
+  const { user, logout } = useAuth();
   return (
     <>
       {/* Desktop Sidebar */}
@@ -61,6 +70,21 @@ export function LeftSidebar() {
           </Link>
         </div>
         <NavLinks />
+        <div className="mt-auto p-4 border-t border-muted-foreground/10 bg-muted/20">
+          <div className="flex flex-col gap-1 px-3 py-2 mb-2">
+            <p className="text-sm font-semibold truncate">{user?.name}</p>
+            <p className="text-[10px] uppercase font-bold tracking-wider text-primary opacity-80">{user?.role?.replace("_", " ")}</p>
+          </div>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="w-full justify-start text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+            onClick={logout}
+          >
+            <LogOut className="mr-3 h-4 w-4" />
+            Sign Out
+          </Button>
+        </div>
       </aside>
 
       {/* Mobile Drawer */}
@@ -76,7 +100,22 @@ export function LeftSidebar() {
               <DrawerTitle>Menu</DrawerTitle>
             </DrawerHeader>
             <NavLinks />
-            <DrawerFooter className="p-4">
+            <div className="p-4 border-t border-muted-foreground/10 bg-muted/5 mt-auto">
+              <div className="flex flex-col gap-1 px-3 py-2 mb-2">
+                <p className="text-sm font-semibold truncate">{user?.name}</p>
+                <p className="text-[10px] uppercase font-bold tracking-wider text-primary opacity-80">{user?.role?.replace("_", " ")}</p>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="w-full justify-start text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                onClick={logout}
+              >
+                <LogOut className="mr-3 h-4 w-4" />
+                Sign Out
+              </Button>
+            </div>
+            <DrawerFooter className="p-4 flex-none mt-0">
               <DrawerClose asChild>
                 <Button variant="outline" className="w-full">Close</Button>
               </DrawerClose>

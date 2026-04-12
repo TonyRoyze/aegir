@@ -1,5 +1,7 @@
 "use client"
 
+import React from "react"
+
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm, useFieldArray, UseFormReturn, useWatch } from "react-hook-form"
 import { Id } from "@/convex/_generated/dataModel"
@@ -279,29 +281,48 @@ export function RegistrationForm() {
 
 
   const handlePrint = async () => {
-    if (!selectedMeetId) return;
+    if (!selectedMeetId || !selectedMeet) return;
     setDownloading(true);
     try {
-      const params = new URLSearchParams({
-        gender: activeTab,
-        faculty: selectedFaculty
+      const genderPrefix = activeTab === "Male" ? "M:" : "W:";
+      const currentMeetEvents = (selectedMeet.events || [])
+        .filter((e: string) => e.startsWith(genderPrefix));
+      const response = await fetch("/api/registration-sheet-pdf", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          meet: {
+            name: selectedMeet.name,
+            events: currentMeetEvents,
+          },
+          registrations: registrations || [],
+          filters: {
+            gender: activeTab,
+            faculty: selectedFaculty,
+          },
+        }),
       });
-      const response = await fetch(`/api/print/registration-sheet/${selectedMeetId}?${params}`);
-      if (!response.ok) throw new Error('Failed to generate PDF');
+
+      if (!response.ok) {
+        throw new Error(`PDF request failed with status ${response.status}`);
+      }
 
       const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+
+      const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       const genderLabel = activeTab === "Male" ? "Men" : "Women";
-      link.download = `Registration Sheet ${selectedMeet?.name || 'document'} ${genderLabel} ${selectedFaculty}.pdf`;
+      link.download = `Registration Sheet ${selectedMeet.name} ${genderLabel} ${selectedFaculty}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      URL.revokeObjectURL(url);
     } catch (error) {
-      console.error(error);
-      alert("Failed to download PDF");
+      console.error('PDF generation failed:', error);
+      alert('Failed to generate PDF. Please try again.');
     } finally {
       setDownloading(false);
     }
