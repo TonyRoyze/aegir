@@ -194,8 +194,7 @@ export function HeatTables({ meet, registrations, orderedEvents, allResults, onS
 
       // Balanced heats helper
       const processGroup = (groupStudents: any[], label: string) => {
-        const sorted = [...groupStudents].sort((a: any, b: any) => a.name.localeCompare(b.name));
-        const heats = assignToHeats(sorted, LANES_PER_HEAT);
+        const heats = assignToHeats(groupStudents, LANES_PER_HEAT);
         if (heats.length > 0) {
           groups.push({ label, heats });
         }

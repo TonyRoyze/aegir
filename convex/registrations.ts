@@ -34,6 +34,7 @@ export const get = query({
             nameInUse: student.nameInUse,
             gender: student.gender,
             faculty: student.faculty,
+            seed: student.seed,
           },
           events: reg.events,
           registeredAt: reg.registeredAt
@@ -57,6 +58,7 @@ export const sync = mutation({
           nameInUse: v.string(),
           gender: v.optional(v.union(v.literal("Male"), v.literal("Female"))),
           faculty: v.optional(v.string()),
+          seed: v.optional(v.union(v.number(), v.string())),
         }),
         events: v.array(v.string()),
         registeredAt: v.string(),
@@ -100,6 +102,7 @@ export const sync = mutation({
         nameInUse: reg.student.nameInUse,
         gender: reg.student.gender,
         faculty: reg.student.faculty,
+        seed: reg.student.seed ? Number(reg.student.seed) : undefined,
       };
 
       if (existingStudent) {

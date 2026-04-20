@@ -21,6 +21,7 @@ export interface Student {
   nameInUse: string;
   gender: Gender;
   faculty: Faculty;
+  seed?: number;
 }
 
 export const SWIM_EVENTS = [

@@ -18,6 +18,7 @@ export default defineSchema({
     nameInUse: v.string(),
     gender: v.optional(v.union(v.literal("Male"), v.literal("Female"))),
     faculty: v.optional(v.string()),
+    seed: v.optional(v.number()),
   }).index("by_externalId", ["externalId"]),
 
   registrations: defineTable({
@@ -60,4 +61,13 @@ export default defineSchema({
     token: v.string(),
     expiresAt: v.number(),
   }).index("by_token", ["token"]),
+
+  heatAssignments: defineTable({
+    meetId: v.id("meets"),
+    event: v.string(),
+    gender: v.union(v.literal("Male"), v.literal("Female")),
+    heat: v.number(),
+    lane: v.number(),
+    studentId: v.id("students"),
+  }).index("by_meet_event_gender_heat", ["meetId", "event", "gender", "heat"]),
 });

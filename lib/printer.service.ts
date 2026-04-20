@@ -12,9 +12,7 @@ function resolveBrowserExecutablePath() {
     process.env.PUPPETEER_EXECUTABLE_PATH,
     process.env.CHROME_PATH,
     puppeteer.executablePath(),
-    "/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
-    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-    "/Applications/Chromium.app/Contents/MacOS/Chromium",
+    "/Applications/Helium.app/Contents/MacOS/Helium"
   ].filter((candidate): candidate is string => Boolean(candidate));
 
   const executablePath = candidates.find((candidate) => existsSync(candidate));

@@ -101,8 +101,7 @@ export function buildMeetProgramEvents(
     const groups: MeetProgramGroup[] = [];
 
     const processGroup = (groupStudents: MeetProgramStudent[], label: string) => {
-      const sorted = [...groupStudents].sort((a, b) => a.name.localeCompare(b.name));
-      const heats = assignToHeats(sorted, LANES_PER_HEAT) as Array<Array<MeetProgramStudent | null>>;
+      const heats = assignToHeats(groupStudents, LANES_PER_HEAT) as Array<Array<MeetProgramStudent | null>>;
 
       if (heats.length > 0) {
         groups.push({ label, heats });

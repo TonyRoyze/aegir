@@ -1,7 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import * as bcrypt from "bcryptjs";
-import { Id } from "./_generated/dataModel";
 
 // --- Queries ---
 
@@ -40,7 +39,9 @@ export const login = mutation({
   handler: async (ctx, args) => {
     const user = await ctx.db
       .query("users")
-      .withIndex("by_username", (q) => q.eq("username", args.username.toLowerCase()))
+      .withIndex("by_username", (q) =>
+        q.eq("username", args.username.toLowerCase()),
+      )
       .unique();
 
     if (!user) {
@@ -56,13 +57,14 @@ export const login = mutation({
     // Actually, mutations are deterministic - we can't use Date.now() for unique tokens.
     // However, we can use the ID of the session record itself or a pseudo-random token if we pass it in.
     // Better: create the session and return its string ID.
-    
-    const token = Math.random().toString(36).substring(2) + Date.now().toString(36);
+
+    const token =
+      Math.random().toString(36).substring(2) + Date.now().toString(36);
     // Wait: Math.random() and Date.now() are NOT allowed in Convex mutations directly as they break determinism.
-    // Actually, Convex provides a way to get the current time: ctx.db.system.currentTime() is not right... 
+    // Actually, Convex provides a way to get the current time: ctx.db.system.currentTime() is not right...
     // It's `Date.now()` in Convex is actually deterministic (it's the transaction start time).
     // But `Math.random` is patched to be deterministic based on the transaction.
-    
+
     // Let's create a session record.
     const sessionId = await ctx.db.insert("sessions", {
       userId: user._id,
@@ -101,7 +103,6 @@ export const logout = mutation({
     }
   },
 });
-
 
 // Administrative queries and mutations follow...
 
@@ -159,7 +160,9 @@ export const createUser = mutation({
     // 2. check if username exists
     const existing = await ctx.db
       .query("users")
-      .withIndex("by_username", (q) => q.eq("username", args.userData.username.toLowerCase()))
+      .withIndex("by_username", (q) =>
+        q.eq("username", args.userData.username.toLowerCase()),
+      )
       .unique();
 
     if (existing) {

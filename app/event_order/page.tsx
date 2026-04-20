@@ -41,7 +41,9 @@ export default function EventOrderPage() {
   const [selectedMeetId, setSelectedMeetId] = useState<string | null>(null);
   const meets = useQuery(api.meets.getMeets);
   const registrations = useQuery(api.registrations.get, selectedMeetId ? { meetId: selectedMeetId as Id<"meets"> } : "skip");
+  const heatAssignments = useQuery(api.meets.getHeatAssignments, selectedMeetId ? { meetId: selectedMeetId as Id<"meets"> } : "skip");
   const updateEvents = useMutation(api.meets.updateEvents);
+  const generateHeatAssignments = useMutation(api.meets.generateHeatAssignments);
 
   // Derive local state for optimistic updates or just to handle sorting
   const [orderedEvents, setOrderedEvents] = useState<string[]>([]);
@@ -181,6 +183,17 @@ export default function EventOrderPage() {
                 <Download className="w-4 h-4" />
               )}
               {downloading ? 'Generating PDF...' : 'Download PDF'}
+            </Button>
+
+            <Button
+              onClick={() => selectedMeetId && generateHeatAssignments({ meetId: selectedMeetId as Id<"meets"> })}
+              disabled={!selectedMeetId}
+              variant="outline"
+              className="w-full gap-2"
+              size="lg"
+            >
+              <RefreshCcw className="w-4 h-4" />
+              Generate Heats
             </Button>
           </div>
         </div>
