@@ -7,8 +7,9 @@ export default defineSchema({
     date: v.string(),
     events: v.array(v.string()),
     status: v.union(v.literal("active"), v.literal("archived")),
-    pointSystem: v.optional(v.array(v.number())), // e.g. [10, 8, 6, 5, 4, 3, 2, 1]
-    eventPointSystems: v.optional(v.record(v.string(), v.array(v.number()))), // Event name -> Point list override
+    pointSystem: v.optional(v.array(v.number())),
+    eventPointSystems: v.optional(v.record(v.string(), v.array(v.number()))),
+    publicToken: v.optional(v.string()),
   }),
 
   students: defineTable({

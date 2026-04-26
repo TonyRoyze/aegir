@@ -13,7 +13,7 @@ import { SWIM_EVENTS } from "@/types"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
-import { Loader2, Plus, Calendar as CalendarIcon, Archive, RefreshCcw, Pencil, Trash2, Settings2 } from "lucide-react"
+import { Loader2, Plus, Calendar as CalendarIcon, Archive, RefreshCcw, Pencil, Trash2, Settings2, Link, Copy, Check } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Id } from "@/convex/_generated/dataModel"
 import { cn } from "@/lib/utils"
@@ -27,6 +27,7 @@ interface Meet {
   status?: string;
   pointSystem?: number[];
   eventPointSystems?: Record<string, number[]>;
+  publicToken?: string;
 }
 
 const DEFAULT_POINT_SYSTEM = [7, 5, 4, 3, 2, 1];
@@ -37,6 +38,7 @@ export default function MeetsPage() {
   const updateStatus = useMutation(api.meets.updateStatus)
   const updateMeet = useMutation(api.meets.updateMeet)
   const deleteMeet = useMutation(api.meets.deleteMeet)
+  const generatePublicToken = useMutation(api.meets.generatePublicToken)
 
   const [isCreating, setIsCreating] = useState(false)
   const [newMeetName, setNewMeetName] = useState("")
@@ -60,6 +62,13 @@ export default function MeetsPage() {
   const [deletingMeet, setDeletingMeet] = useState<Meet | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+
+  // Public link state
+  const [publicLinkMeet, setPublicLinkMeet] = useState<Meet | null>(null)
+  const [publicLinkDialogOpen, setPublicLinkDialogOpen] = useState(false)
+  const [generatedToken, setGeneratedToken] = useState<string | null>(null)
+  const [isGeneratingLink, setIsGeneratingLink] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   const handleCreate = async () => {
     if (!newMeetName || !newMeetDate) return
@@ -141,6 +150,34 @@ export default function MeetsPage() {
   const openDeleteDialog = (meet: Meet) => {
     setDeletingMeet(meet)
     setDeleteDialogOpen(true)
+  }
+
+  const openPublicLinkDialog = (meet: Meet) => {
+    setPublicLinkMeet(meet)
+    setGeneratedToken(meet.publicToken || null)
+    setPublicLinkDialogOpen(true)
+    setCopied(false)
+  }
+
+  const handleGeneratePublicLink = async () => {
+    if (!publicLinkMeet) return
+    setIsGeneratingLink(true)
+    try {
+      const token = await generatePublicToken({ meetId: publicLinkMeet._id })
+      setGeneratedToken(token)
+    } catch (error) {
+      console.error("Failed to generate public link:", error)
+    } finally {
+      setIsGeneratingLink(false)
+    }
+  }
+
+  const copyPublicLink = async () => {
+    if (!generatedToken) return
+    const url = `${window.location.origin}/meets/public/${generatedToken}`
+    await navigator.clipboard.writeText(url)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   const handleDelete = async () => {
@@ -356,6 +393,14 @@ export default function MeetsPage() {
                       <span className={cn("text-xs font-medium px-2 py-1 rounded-full capitalize", meet.status === "active" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700")}>
                         {meet.status}
                       </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openPublicLinkDialog(meet)}
+                        title="Public Link"
+                      >
+                        <Link className="h-4 w-4" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -596,6 +641,48 @@ export default function MeetsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Public Link Dialog */}
+      <Dialog open={publicLinkDialogOpen} onOpenChange={setPublicLinkDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Public Leaderboard Link</DialogTitle>
+            <DialogDescription>
+              Share this link to show the leaderboard without requiring login.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {!generatedToken ? (
+              <Button onClick={handleGeneratePublicLink} disabled={isGeneratingLink}>
+                {isGeneratingLink ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Link className="mr-2 h-4 w-4" />}
+                Generate Public Link
+              </Button>
+            ) : (
+              <div className="space-y-2">
+                <Label>Share this link:</Label>
+                <div className="flex gap-2">
+                  <Input
+                    readOnly
+                    value={`${typeof window !== 'undefined' ? window.location.origin : ''}/meets/public/${generatedToken}`}
+                    className="font-mono text-sm"
+                  />
+                  <Button onClick={copyPublicLink} variant="outline" size="icon">
+                    {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Anyone with this link can view the faculty and event leaderboards without logging in.
+                </p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPublicLinkDialogOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
