@@ -4,6 +4,15 @@ import { v } from "convex/values";
 const LANES_PER_HEAT = 6;
 const DEFAULT_LANE_ORDER = [3, 4, 2, 5, 1, 6];
 
+function makeToken(): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  let token = "";
+  for (let i = 0; i < 32; i++) {
+    token += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return token;
+}
+
 export const getMeets = query({
   args: {},
   handler: async (ctx) => {
@@ -16,10 +25,24 @@ export const getHeatAssignments = query({
     meetId: v.id("meets"),
   },
   handler: async (ctx, args) => {
-    return await ctx.db
+    const assignments = await ctx.db
       .query("heatAssignments")
       .withIndex("by_meet_event_gender_heat", (q) => q.eq("meetId", args.meetId))
       .collect();
+
+    // Fetch student details for each assignment
+    const studentIds = [...new Set(assignments.map(a => a.studentId))];
+    const students = new Map();
+    for (const id of studentIds) {
+      const student = await ctx.db.get(id);
+      if (student) students.set(id, student);
+    }
+
+    // Map student data to each assignment
+    return assignments.map(a => ({
+      ...a,
+      student: students.get(a.studentId),
+    }));
   },
 });
 
@@ -156,5 +179,37 @@ export const generateHeatAssignments = mutation({
         });
       }
     }
+  },
+});
+
+export const generatePublicToken = mutation({
+  args: {
+    meetId: v.id("meets"),
+  },
+  handler: async (ctx, args) => {
+    const meet = await ctx.db.get(args.meetId);
+    if (!meet) throw new Error("Meet not found");
+
+    const token = makeToken();
+    await ctx.db.patch(args.meetId, { publicToken: token });
+    return token;
+  },
+});
+
+export const getMeetByPublicToken = query({
+  args: {
+    token: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const meets = await ctx.db.query("meets").collect();
+    const meet = meets.find((m) => m.publicToken === args.token);
+    if (!meet) return null;
+
+    return {
+      _id: meet._id,
+      name: meet.name,
+      date: meet.date,
+      events: meet.events,
+    };
   },
 });

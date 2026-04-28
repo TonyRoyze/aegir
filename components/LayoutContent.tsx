@@ -7,6 +7,17 @@ export function LayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isLoginPage = pathname === "/login";
   const isPreviewPage = pathname.startsWith("/preview");
+  const isPublicMeetPage = pathname.startsWith("/meets/public");
+
+  if (isPublicMeetPage) {
+    return (
+      <main className="flex-1 md:pl-64">
+        <div className="container mx-auto px-4 py-8">
+          {children}
+        </div>
+      </main>
+    );
+  }
 
   return (
     <>

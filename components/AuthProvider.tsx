@@ -29,6 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const isPreviewRoute = pathname.startsWith("/preview");
+  const isPublicMeetRoute = pathname.startsWith("/meets/public");
 
   useEffect(() => {
     const savedToken = localStorage.getItem("aegir_session");
@@ -40,10 +41,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Redirect to login if NO token is found on mount (synchronous check)
   useEffect(() => {
-    if (!token && pathname !== "/login" && !isPreviewRoute) {
+    if (!token && pathname !== "/login" && !isPreviewRoute && !isPublicMeetRoute) {
       router.push("/login");
     }
-  }, [token, pathname, router, isPreviewRoute]);
+  }, [token, pathname, router, isPreviewRoute, isPublicMeetRoute]);
 
   const user = useQuery(api.auth.me, token ? { token } : "skip") as User | undefined;
   const logoutMutation = useMutation(api.auth.logout);
@@ -56,8 +57,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       handleLogout();
     }
     
-    // Redirect if not authenticated and not on login page
-    if (!token && !isLoading && pathname !== "/login" && !isPreviewRoute) {
+    // Redirect if not authenticated and not on login page or public meet
+    if (!token && !isLoading && pathname !== "/login" && !isPreviewRoute && !isPublicMeetRoute) {
       router.push("/login");
     }
 
@@ -65,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (token && user && pathname === "/login") {
       router.push("/");
     }
-  }, [token, user, pathname, isLoading, isPreviewRoute]);
+  }, [token, user, pathname, isLoading, isPreviewRoute, isPublicMeetRoute]);
 
   const handleLogin = (newToken: string) => {
     localStorage.setItem("aegir_session", newToken);
@@ -95,8 +96,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
   }
 
-  // If not authenticated and not on login page, show nothing while redirecting
-  if (!token && pathname !== "/login" && !isPreviewRoute) {
+  // If not authenticated and not on login page or public meet, show nothing while redirecting
+  if (!token && pathname !== "/login" && !isPreviewRoute && !isPublicMeetRoute) {
     return null;
   }
 
