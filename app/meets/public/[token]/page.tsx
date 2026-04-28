@@ -37,7 +37,7 @@ import {
   DrawerDescription,
 } from "@/components/ui/drawer";
 import { Loader2, Trophy, Waves, Settings, ListOrdered } from "lucide-react";
-import { cn } from "@/lib/utils";
+// import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 function formatTime(ms: number): string {
