@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import {
@@ -40,6 +40,13 @@ const formatTime = (ms: number | undefined | null) => {
   return `${minutes}:${seconds.toString().padStart(2, "0")}.${hundredths.toString().padStart(2, "0")}`;
 };
 
+const formatLeaderboardRank = (index: number) => {
+  if (index === 0) return "🥇";
+  if (index === 1) return "🥈";
+  if (index === 2) return "🥉";
+  return index + 1;
+};
+
 export default function DashboardPage() {
   const [selectedMeetId, setSelectedMeetId] = useState<string | null>(null);
   const [selectedGender, setSelectedGender] = useState<"Male" | "Female">(
@@ -49,28 +56,33 @@ export default function DashboardPage() {
     useState<string>("");
 
   const genderPrefix = selectedGender === "Male" ? "M:" : "W:";
+  const meets = useQuery(api.meets.getMeets);
+
+  const preferredMeetId =
+    meets && meets.length > 0
+      ? (meets.find((m) => m.status === "active")?._id ?? meets[0]._id)
+      : null;
+
+  const effectiveSelectedMeetId =
+    selectedMeetId && meets?.some((meet) => meet._id === selectedMeetId)
+      ? selectedMeetId
+      : preferredMeetId;
 
   const stats = useQuery(
     api.dashboard.getStats,
-    selectedMeetId ? { meetId: selectedMeetId as Id<"meets"> } : "skip",
-  );
-  const meets = useQuery(api.meets.getMeets);
-
-  useEffect(() => {
-    if (meets && meets.length > 0 && !selectedMeetId) {
-      const active = meets.find((m) => m.status === "active");
-      setSelectedMeetId(active?._id || meets[0]._id);
-    }
-  }, [meets, selectedMeetId]);
-
-  const eventResults = useQuery(
-    api.results.getResults,
-    selectedMeetId && selectedEventStanding
-      ? { meetId: selectedMeetId as Id<"meets">, event: selectedEventStanding }
+    effectiveSelectedMeetId
+      ? { meetId: effectiveSelectedMeetId as Id<"meets"> }
       : "skip",
   );
 
-  const selectedMeet = meets?.find((m) => m._id === selectedMeetId);
+  const eventResults = useQuery(
+    api.results.getResults,
+    effectiveSelectedMeetId && selectedEventStanding
+      ? { meetId: effectiveSelectedMeetId as Id<"meets">, event: selectedEventStanding }
+      : "skip",
+  );
+
+  const selectedMeet = meets?.find((m) => m._id === effectiveSelectedMeetId);
 
   const {
     totalParticipants,
@@ -101,7 +113,7 @@ export default function DashboardPage() {
             value={selectedMeetId || ""}
             onValueChange={(value) => setSelectedMeetId(value)}
           >
-            <SelectTrigger className="w-48">
+            <SelectTrigger className="w-full">
               <SelectValue placeholder="Select a meet" />
             </SelectTrigger>
             <SelectContent>
@@ -192,17 +204,12 @@ export default function DashboardPage() {
                       >
                         <div
                           className={cn(
-                            "flex h-8 w-8 items-center justify-center rounded-full font-bold text-xs ring-2 ring-transparent",
-                            index === 0
-                              ? "bg-amber-100 text-amber-700 ring-amber-200"
-                              : index === 1
-                                ? "bg-slate-100 text-slate-700 ring-slate-200"
-                                : index === 2
-                                  ? "bg-orange-100 text-orange-800 ring-orange-200"
-                                  : "bg-muted text-muted-foreground",
+                            "flex h-8 w-8 items-center justify-center font-bold text-xs",
+                            index <= 2 && "text-2xl",
+                            index > 2 && "text-muted-foreground",
                           )}
                         >
-                          {index + 1}
+                          {formatLeaderboardRank(index)}
                         </div>
                         <div className="flex-1 space-y-1.5">
                           <div className="flex justify-between text-sm font-medium">
@@ -247,17 +254,12 @@ export default function DashboardPage() {
                         <div className="flex items-center gap-3">
                           <div
                             className={cn(
-                              "flex h-6 w-6 items-center justify-center rounded-full font-bold text-[10px]",
-                              index === 0
-                                ? "bg-amber-100 text-amber-700"
-                                : index === 1
-                                  ? "bg-slate-100 text-slate-700"
-                                  : index === 2
-                                    ? "bg-orange-100 text-orange-800"
-                                    : "bg-muted text-muted-foreground",
+                              "flex h-6 w-6 items-center justify-center font-bold text-[10px]",
+                              index <= 2 && "text-xl",
+                              index > 2 && "text-muted-foreground",
                             )}
                           >
-                            {index + 1}
+                            {formatLeaderboardRank(index)}
                           </div>
                           <div>
                             <p className="text-sm font-medium leading-none">

@@ -19,6 +19,35 @@ const getParts = (ms: number | undefined | null) => {
   };
 };
 
+type ResultStudent = {
+  externalId?: string;
+  id?: string;
+  _id?: string;
+};
+
+type ResultRow = {
+  event: string;
+  studentId: string;
+};
+
+const getResultStudentId = (student: ResultStudent | null | undefined) => {
+  if (!student) return "";
+  return student.externalId || student.id || student._id || "";
+};
+
+const getResultStudentIds = (student: ResultStudent | null | undefined) => {
+  return [student?.externalId, student?.id, student?._id].filter(Boolean);
+};
+
+const findStudentResult = <T extends ResultRow>(
+  allResults: T[],
+  eventName: string,
+  student: ResultStudent | null | undefined,
+) => {
+  const studentIds = getResultStudentIds(student);
+  return allResults?.find(r => r.event === eventName && studentIds.includes(r.studentId));
+};
+
 // --- Row Component ---
 
 function StudentRow({
@@ -42,8 +71,7 @@ function StudentRow({
 
   useEffect(() => {
     if (!student) return;
-    const studentId = student.id || student._id;
-    const res = allResults?.find(r => r.event === eventName && r.studentId === studentId);
+    const res = findStudentResult(allResults, eventName, student);
     if (res) {
       setLocalInputs(getParts(res.timing));
     } else {
@@ -59,7 +87,7 @@ function StudentRow({
 
   const handleBlur = async () => {
     if (!student) return;
-    const studentId = student.id || student._id;
+    const studentId = getResultStudentId(student);
     const p = localInputs;
     if (p.m === "" && p.s === "" && p.h === "") return;
 
@@ -69,14 +97,14 @@ function StudentRow({
 
     if (ms === 0) return;
 
-    const currentRes = allResults?.find(r => r.event === eventName && r.studentId === studentId);
+    const currentRes = findStudentResult(allResults, eventName, student);
     if (currentRes && currentRes.timing === ms) return;
 
     await onSave(studentId, ms);
   };
 
-  const studentId = student?.id || student?._id;
-  const res = student ? allResults?.find(r => r.event === eventName && r.studentId === studentId) : null;
+  const studentId = getResultStudentId(student);
+  const res = student ? findStudentResult(allResults, eventName, student) : null;
   const isSaving = student && savingId === studentId;
 
   return (
