@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useMemo } from "react"
 import { useQuery, useMutation } from "convex/react"
 import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
@@ -11,11 +11,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Loader2, RefreshCcw, Download } from "lucide-react"
+import { GripVertical, Loader2, RefreshCcw, Download, WandSparkles } from "lucide-react"
 import { MeetProgram } from "@/components/print/meet-program"
+import { EventRestSummary, optimizeEventOrderForRest, summarizeEventRest } from "@/lib/event-rest-utils"
+import {
+  clearProgramEventOrder,
+  loadProgramEventOrder,
+  saveProgramEventOrder,
+} from "@/lib/program-event-order"
 
 // Sortable Item Component
-function SortableEventItem({ id, name }: { id: string, name: string }) {
+function SortableEventItem({
+  id,
+  name,
+  restSummary,
+}: {
+  id: string,
+  name: string,
+  restSummary?: EventRestSummary,
+}) {
   const {
     attributes,
     listeners,
@@ -29,12 +43,38 @@ function SortableEventItem({ id, name }: { id: string, name: string }) {
     transition,
   };
 
+  const hasConflict = Boolean(restSummary && (restSummary.sharedWithPrevious > 0 || restSummary.sharedWithNext > 0));
+
   return (
-    <div ref={setNodeRef} style={style} className="flex items-center gap-2 p-2 border rounded-md mb-2 group hover:border-primary/50 transition-colors bg-card">
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`mb-2 rounded-md border p-2 transition-colors ${
+        hasConflict
+          ? "border-red-300 bg-red-50 text-red-950"
+          : "bg-card group hover:border-primary/50"
+      }`}
+    >
+      <div className="flex items-center gap-2">
       <button {...attributes} {...listeners} className="cursor-grab hover:bg-muted p-1 rounded active:cursor-grabbing touch-none">
         <GripVertical className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
       </button>
       <span className="text-sm font-medium truncate flex-1">{name}</span>
+      </div>
+      {hasConflict ? (
+        <div className="mt-2 space-y-1 pl-8 text-[11px] leading-4 text-red-700">
+          {restSummary?.sharedWithPrevious ? (
+            <div>
+              {restSummary.sharedWithPrevious} swimmer{restSummary.sharedWithPrevious === 1 ? "" : "s"} also in previous event
+            </div>
+          ) : null}
+          {restSummary?.sharedWithNext ? (
+            <div>
+              {restSummary.sharedWithNext} swimmer{restSummary.sharedWithNext === 1 ? "" : "s"} also in next event
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -43,8 +83,6 @@ export default function EventOrderPage() {
   const [selectedMeetId, setSelectedMeetId] = useState<string | null>(null);
   const meets = useQuery(api.meets.getMeets);
   const registrations = useQuery(api.registrations.get, selectedMeetId ? { meetId: selectedMeetId as Id<"meets"> } : "skip");
-  const heatAssignments = useQuery(api.meets.getHeatAssignments, selectedMeetId ? { meetId: selectedMeetId as Id<"meets"> } : "skip");
-  const updateEvents = useMutation(api.meets.updateEvents);
   const generateHeatAssignments = useMutation(api.meets.generateHeatAssignments);
 
   // Derive local state for optimistic updates or just to handle sorting
@@ -63,7 +101,7 @@ export default function EventOrderPage() {
   const selectedMeet = meets?.find(m => m._id === selectedMeetId);
   useEffect(() => {
     if (selectedMeet) {
-      setOrderedEvents(selectedMeet.events);
+      setOrderedEvents(loadProgramEventOrder(selectedMeet._id, selectedMeet.events));
     }
   }, [selectedMeet]);
 
@@ -84,9 +122,8 @@ export default function EventOrderPage() {
       const newOrder = arrayMove(orderedEvents, oldIndex, newIndex);
       setOrderedEvents(newOrder);
 
-      // Persist to backend
       if (selectedMeetId) {
-        await updateEvents({ id: selectedMeetId as Id<"meets">, events: newOrder });
+        saveProgramEventOrder(selectedMeetId, newOrder);
       }
     }
   };
@@ -94,7 +131,50 @@ export default function EventOrderPage() {
   const handleResetOrder = () => {
     if (selectedMeet) {
       setOrderedEvents(selectedMeet.events);
+      clearProgramEventOrder(selectedMeet._id);
     }
+  };
+
+  const restSummaries = useMemo(
+    () => summarizeEventRest(registrations || [], orderedEvents),
+    [orderedEvents, registrations],
+  );
+
+  const restSummaryByEvent = useMemo(
+    () => new Map(restSummaries.map((summary) => [summary.eventName, summary])),
+    [restSummaries],
+  );
+
+  const totalAdjacentConflicts = useMemo(
+    () =>
+      restSummaries.reduce(
+        (sum, summary) => sum + summary.sharedWithNext,
+        0,
+      ),
+    [restSummaries],
+  );
+
+  const hasAutoSortImprovement = useMemo(() => {
+    if (!registrations || orderedEvents.length <= 1) {
+      return false;
+    }
+
+    const suggestedOrder = optimizeEventOrderForRest(registrations, orderedEvents);
+    return suggestedOrder.join("|") !== orderedEvents.join("|");
+  }, [orderedEvents, registrations]);
+
+  const handleAutoSort = async () => {
+    if (!selectedMeetId || !registrations) {
+      return;
+    }
+
+    const optimizedOrder = optimizeEventOrderForRest(registrations, orderedEvents);
+    if (optimizedOrder.join("|") === orderedEvents.join("|")) {
+      return;
+    }
+
+    setOrderedEvents(optimizedOrder);
+    saveProgramEventOrder(selectedMeetId, optimizedOrder);
   };
 
   const [downloading, setDownloading] = useState(false);
@@ -151,6 +231,7 @@ export default function EventOrderPage() {
           meet={selectedMeet || { name: 'Meet Name', events: [] }}
           registrations={registrations || []}
           orderedEvents={orderedEvents}
+          restSummaryByEvent={restSummaryByEvent}
         />
       </div>
 
@@ -197,6 +278,27 @@ export default function EventOrderPage() {
               <RefreshCcw className="w-4 h-4" />
               Generate Heats
             </Button>
+
+            <Button
+              onClick={handleAutoSort}
+              disabled={!selectedMeetId || !registrations || !hasAutoSortImprovement}
+              variant="outline"
+              className="w-full gap-2"
+              size="lg"
+            >
+              <WandSparkles className="w-4 h-4" />
+              Auto Sort for Rest
+            </Button>
+
+            <div className={`rounded-lg border px-3 py-2 text-sm ${
+              totalAdjacentConflicts > 0
+                ? "border-red-200 bg-red-50 text-red-800"
+                : "border-emerald-200 bg-emerald-50 text-emerald-800"
+            }`}>
+              {totalAdjacentConflicts > 0
+                ? `${totalAdjacentConflicts} back-to-back swimmer conflict${totalAdjacentConflicts === 1 ? "" : "s"} detected`
+                : "No back-to-back swimmer conflicts in the current order"}
+            </div>
           </div>
         </div>
 
@@ -224,7 +326,12 @@ export default function EventOrderPage() {
                 strategy={verticalListSortingStrategy}
               >
                 {orderedEvents.map((event) => (
-                  <SortableEventItem key={event} id={event} name={event} />
+                  <SortableEventItem
+                    key={event}
+                    id={event}
+                    name={event}
+                    restSummary={restSummaryByEvent.get(event)}
+                  />
                 ))}
               </SortableContext>
             </DndContext>

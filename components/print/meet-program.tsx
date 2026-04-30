@@ -1,98 +1,26 @@
 "use client"
 
-import { useMemo } from "react"
 import Image from "next/image"
 
-import { assignToHeats, LANES_PER_HEAT } from "@/lib/swimming-utils"
+import { EventRestSummary } from "@/lib/event-rest-utils"
+import {
+  buildMeetProgramEvents,
+  MeetProgramRegistration,
+} from "@/lib/meet-program-pdf"
+import { LANES_PER_HEAT } from "@/lib/swimming-utils"
 
 interface MeetProgramProps {
   meet: {
     name: string;
     events: string[];
   };
-  registrations: any[];
+  registrations: MeetProgramRegistration[];
   orderedEvents: string[];
+  restSummaryByEvent?: Map<string, EventRestSummary>;
 }
 
-export function MeetProgram({ meet, registrations, orderedEvents }: MeetProgramProps) {
-  // Group detailed students by event
-  const eventsData = useMemo(() => {
-    if (!registrations || !orderedEvents) return [];
-
-    // Map: EventName -> Student[]
-    const map = new Map<string, any[]>();
-
-    // Initialize map with empty arrays for all events (to show empty events too)
-    orderedEvents.forEach(e => map.set(e, []));
-
-    registrations.forEach(reg => {
-      reg.events.forEach((eventName: string) => {
-        if (map.has(eventName)) {
-          map.get(eventName)?.push(reg.student);
-        }
-      });
-    });
-
-    return orderedEvents.map((eventName, index) => {
-      const students = map.get(eventName) || [];
-      const isRelay = eventName.toLowerCase().includes("relay");
-
-      let studentsToProcess = students;
-
-
-      if (isRelay) {
-        // For relays, we group by faculty to show one row per team
-        const facultyTeams = new Map<string, any>();
-        students.forEach(s => {
-          const faculty = s.faculty || "Unknown";
-          if (!facultyTeams.has(faculty)) {
-            facultyTeams.set(faculty, {
-              _id: faculty, // Use faculty as ID for timing/results
-              name: faculty,
-              faculty: faculty,
-              gender: s.gender, // Carry over gender for grouping
-              isRelay: true
-            });
-          }
-        });
-        studentsToProcess = Array.from(facultyTeams.values());
-      }
-
-
-      // Split by gender
-      const men = studentsToProcess.filter((s: any) => s.gender === 'Male');
-      const women = studentsToProcess.filter((s: any) => s.gender === 'Female');
-
-      const groups: { label: string; heats: any[][] }[] = [];
-
-      // Balanced heats helper
-      const processGroup = (groupStudents: any[], label: string) => {
-        const heats = assignToHeats(groupStudents, LANES_PER_HEAT);
-        if (heats.length > 0) {
-          groups.push({ label, heats });
-        }
-      };
-
-      // Order: Women then Men
-      if (women.length > 0) processGroup(women, "Women");
-      if (men.length > 0) processGroup(men, "Men");
-
-      // Fallback
-      if (studentsToProcess.length === 0) {
-        groups.push({ label: "", heats: [[]] });
-      } else if (groups.length === 0) {
-        const others = studentsToProcess.filter((s: any) => s.gender !== 'Male' && s.gender !== 'Female');
-        if (others.length > 0) processGroup(others, "Participants");
-      }
-
-      return {
-        name: eventName,
-        number: index + 1,
-        groups
-      };
-    });
-
-  }, [orderedEvents, registrations]);
+export function MeetProgram({ meet, registrations, orderedEvents, restSummaryByEvent }: MeetProgramProps) {
+  const eventsData = buildMeetProgramEvents(registrations, orderedEvents);
 
   return (
     <div id="printable-content" className="mx-auto max-w-[210mm] min-h-[297mm] bg-white shadow-lg print:shadow-none p-10 print:p-0 print:m-0">
@@ -117,6 +45,8 @@ export function MeetProgram({ meet, registrations, orderedEvents }: MeetProgramP
       <div className="space-y-10 print:space-y-8">
         {eventsData.map((event) => {
           const isRelayEvent = event.name.toLowerCase().includes("relay");
+          const restSummary = restSummaryByEvent?.get(event.name);
+          const hasConflict = Boolean(restSummary && (restSummary.sharedWithPrevious > 0 || restSummary.sharedWithNext > 0));
 
           return (
             <div key={event.name} className="break-inside-avoid">
@@ -125,9 +55,27 @@ export function MeetProgram({ meet, registrations, orderedEvents }: MeetProgramP
               <div className="border border-black border-b-0 inline-block px-4 py-1 font-bold text-sm bg-neutral-100 print:bg-neutral-100 print:print-color-adjust-exact">
                 Event No: {String(event.number).padStart(2, '0')}
               </div>
-              <div className="border border-black px-3 py-2 font-bold text-lg bg-white">
+              <div className={`border px-3 py-2 font-bold text-lg ${
+                hasConflict
+                  ? "border-red-300 bg-red-50 text-red-900"
+                  : "border-black bg-white"
+              }`}>
                 Event: {event.name}
               </div>
+              {hasConflict ? (
+                <div className="border border-t-0 border-red-300 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+                  {restSummary?.sharedWithPrevious ? (
+                    <div>
+                      {restSummary.sharedWithPrevious} swimmer{restSummary.sharedWithPrevious === 1 ? "" : "s"} also in previous event
+                    </div>
+                  ) : null}
+                  {restSummary?.sharedWithNext ? (
+                    <div>
+                      {restSummary.sharedWithNext} swimmer{restSummary.sharedWithNext === 1 ? "" : "s"} also in next event
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
 
             {/* Groups (Men/Women) */}

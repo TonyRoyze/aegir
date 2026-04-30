@@ -110,28 +110,31 @@ export const saveResult = mutation({
     const eventOverride = meet?.eventPointSystems?.[args.event];
     const pointsConfig = eventOverride || meet?.pointSystem || DEFAULT_POINTS;
 
-    // Update ranks and points
-    // Logic: Same time = same rank. Skip ranks after ties? (e.g. 1, 1, 3).
-    // Let's implement standard competition ranking (1224)
-    let currentRank = 1;
-    for (let i = 0; i < allResults.length; i++) {
-      const result = allResults[i];
+    // Same time = same rank. Tied swimmers average the points for the places they occupy.
+    for (let i = 0; i < allResults.length;) {
+      const rank = i + 1;
+      const timing = allResults[i].timing;
+      let tieEnd = i;
 
-      // If not first, check if tie with previous
-      if (i > 0 && result.timing === allResults[i - 1].timing) {
-        // It's a tie, keep same rank as previous
-        // currentRank doesn't change for this swimmer, but 'i' increments
-      } else {
-        // distinct time, rank is i + 1
-        currentRank = i + 1;
+      while (tieEnd + 1 < allResults.length && allResults[tieEnd + 1].timing === timing) {
+        tieEnd++;
       }
 
-      const points = pointsConfig[currentRank - 1] || 0;
+      const tieCount = tieEnd - i + 1;
+      let pointsTotal = 0;
+      for (let position = i; position <= tieEnd; position++) {
+        pointsTotal += pointsConfig[position] || 0;
+      }
+      const points = pointsTotal / tieCount;
 
-      await ctx.db.patch(result._id, {
-        rank: currentRank,
-        points: points
-      });
+      for (let position = i; position <= tieEnd; position++) {
+        await ctx.db.patch(allResults[position]._id, {
+          rank,
+          points,
+        });
+      }
+
+      i = tieEnd + 1;
     }
   },
 });

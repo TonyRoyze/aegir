@@ -8,8 +8,7 @@ import { Loader2 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { HeatTables } from "@/components/HeatTables"
 import { FacultyLeaderboard } from "@/components/FacultyLeaderboard"
-
-const LANES_PER_HEAT = 6;
+import { loadProgramEventOrder } from "@/lib/program-event-order"
 
 // --- Main Page ---
 
@@ -23,6 +22,9 @@ export default function TimingPage() {
   const saveResult = useMutation(api.results.saveResult);
 
   const [savingId, setSavingId] = useState<string | null>(null);
+  const orderedEvents = selectedMeet
+    ? loadProgramEventOrder(selectedMeet._id, selectedMeet.events)
+    : [];
 
   useEffect(() => {
     if (meets && meets.length > 0 && !selectedMeetId) {
@@ -57,7 +59,7 @@ export default function TimingPage() {
         <HeatTables
           meet={selectedMeet || { name: 'Meet Name', events: [] }}
           registrations={registrations || []}
-          orderedEvents={selectedMeet?.events || []}
+          orderedEvents={orderedEvents}
           allResults={allResults || []}
           onSave={handleSave}
           savingId={savingId}
