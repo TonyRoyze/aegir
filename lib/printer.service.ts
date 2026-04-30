@@ -1,18 +1,21 @@
 import { existsSync } from "node:fs";
 
-import puppeteer from "puppeteer";
+import chromium from "@sparticuz/chromium-min";
+import puppeteerCore from "puppeteer-core";
 
 import type { MeetProgramDocumentData } from "@/lib/meet-program-pdf";
 import { MEET_PROGRAM_STORAGE_KEY } from "@/lib/meet-program-pdf";
 import type { RegistrationSheetDocumentData } from "@/lib/registration-sheet-pdf";
 import { REGISTRATION_SHEET_STORAGE_KEY } from "@/lib/registration-sheet-pdf";
 
-function resolveBrowserExecutablePath() {
+function resolveBrowserExecutablePath(bundledExecutablePath?: string) {
   const candidates = [
     process.env.PUPPETEER_EXECUTABLE_PATH,
     process.env.CHROME_PATH,
-    puppeteer.executablePath(),
-    "/Applications/Helium.app/Contents/MacOS/Helium"
+    bundledExecutablePath,
+    "/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/Applications/Chromium.app/Contents/MacOS/Chromium",
   ].filter((candidate): candidate is string => Boolean(candidate));
 
   const executablePath = candidates.find((candidate) => existsSync(candidate));
@@ -24,6 +27,44 @@ function resolveBrowserExecutablePath() {
   }
 
   return executablePath;
+}
+
+let cachedExecutablePath: string | null = null;
+let executablePathPromise: Promise<string> | null = null;
+
+async function getVercelChromiumExecutablePath(baseUrl: string) {
+  if (cachedExecutablePath) {
+    return cachedExecutablePath;
+  }
+
+  if (!executablePathPromise) {
+    const chromiumPackUrl = process.env.CHROMIUM_PACK_URL || `${baseUrl}/chromium-pack.tar`;
+    executablePathPromise = chromium.executablePath(chromiumPackUrl).then((executablePath) => {
+      cachedExecutablePath = executablePath;
+      return executablePath;
+    });
+  }
+
+  return executablePathPromise;
+}
+
+async function launchBrowser(baseUrl: string) {
+  if (process.env.VERCEL) {
+    const executablePath = await getVercelChromiumExecutablePath(baseUrl);
+    return puppeteerCore.launch({
+      headless: true,
+      executablePath,
+      args: chromium.args,
+    });
+  }
+
+  const puppeteer = (await import("puppeteer")).default;
+
+  return puppeteer.launch({
+    headless: true,
+    executablePath: resolveBrowserExecutablePath(puppeteer.executablePath()),
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+  });
 }
 
 export async function generateMeetProgramPdf(document: MeetProgramDocumentData, baseUrl: string) {
@@ -58,28 +99,27 @@ async function generatePreviewPdf({
   previewPath: string;
   storageKey: string;
 }) {
-  const browser = await puppeteer.launch({
-    headless: true,
-    executablePath: resolveBrowserExecutablePath(),
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
-  });
+  const browser = await launchBrowser(baseUrl);
 
   try {
     const page = await browser.newPage();
+    const browserPage = page as unknown as {
+      evaluate: (
+        fn: (args: { storageKey: string; payload: unknown }) => void,
+        args: { storageKey: string; payload: unknown },
+      ) => Promise<void>;
+    };
 
     await page.goto(`${baseUrl}${previewPath}`, {
       waitUntil: "networkidle0",
     });
 
-    await page.evaluate(
-      ({ storageKey, payload }) => {
-        window.localStorage.setItem(storageKey, JSON.stringify(payload));
-      },
-      {
-        storageKey,
-        payload: document,
-      },
-    );
+    await browserPage.evaluate((args: { storageKey: string; payload: unknown }) => {
+      window.localStorage.setItem(args.storageKey, JSON.stringify(args.payload));
+    }, {
+      storageKey,
+      payload: document,
+    });
 
     await page.reload({
       waitUntil: "networkidle0",
