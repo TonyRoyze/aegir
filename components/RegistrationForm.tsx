@@ -259,7 +259,7 @@ export function RegistrationForm() {
         nameInUse: "",
         gender: activeTab,
         faculty: selectedFaculty,
-        seed: undefined,
+        seed: 1,
       },
       events: [],
       registeredAt: new Date(),
@@ -383,7 +383,7 @@ export function RegistrationForm() {
   };
 
   return (
-    <div className="space-y-4 border rounded-lg p-4">
+    <div className="space-y-4 border rounded-lg p-4 w-full">
       {/* Controls */}
       <div className="flex flex-col md:flex-row items-center justify-between print:hidden gap-4">
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
@@ -395,20 +395,21 @@ export function RegistrationForm() {
               setHasLoaded(false); // Trigger reload for new meet
             }}
           >
-            <SelectTrigger className="w-full md:w-62.5">
-              <SelectValue placeholder="Select Meet" />
-            </SelectTrigger>
+            {meets?.length === 0 ? (
+              <p className="text-sm text-muted-foreground mt-2">
+                No meets available.
+              </p>
+            ) : (
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select Meet" />
+              </SelectTrigger>
+            )}
             <SelectContent>
               {meets?.map((meet) => (
                 <SelectItem key={meet._id} value={meet._id}>
                   {meet.name}
                 </SelectItem>
               ))}
-              {meets?.length === 0 && (
-                <SelectItem value="" disabled>
-                  No meets available
-                </SelectItem>
-              )}
             </SelectContent>
           </Select>
 
