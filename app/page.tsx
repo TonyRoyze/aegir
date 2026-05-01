@@ -78,7 +78,10 @@ export default function DashboardPage() {
   const eventResults = useQuery(
     api.results.getResults,
     effectiveSelectedMeetId && selectedEventStanding
-      ? { meetId: effectiveSelectedMeetId as Id<"meets">, event: selectedEventStanding }
+      ? {
+          meetId: effectiveSelectedMeetId as Id<"meets">,
+          event: selectedEventStanding,
+        }
       : "skip",
   );
 
@@ -113,20 +116,21 @@ export default function DashboardPage() {
             value={selectedMeetId || ""}
             onValueChange={(value) => setSelectedMeetId(value)}
           >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select a meet" />
-            </SelectTrigger>
+            {meets?.length === 0 ? (
+              <p className="text-sm text-muted-foreground mt-2">
+                No meets available.
+              </p>
+            ) : (
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select Meet" />
+              </SelectTrigger>
+            )}
             <SelectContent>
               {meets?.map((meet) => (
                 <SelectItem key={meet._id} value={meet._id}>
                   {meet.name}
                 </SelectItem>
               ))}
-              {meets?.length === 0 && (
-                <SelectItem value="" disabled>
-                  No meets available
-                </SelectItem>
-              )}
             </SelectContent>
           </Select>
         </div>

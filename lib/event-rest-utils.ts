@@ -13,9 +13,54 @@ export interface EventRestSummary {
   nextSharedNames: string[];
 }
 
+export interface EventRestConflictMap {
+  [eventName: string]: Set<string>; // student keys that are in conflict with adjacent events
+}
+
+export function buildConflictMap(
+  registrations: RegistrationLike[],
+  orderedEvents: string[],
+): EventRestConflictMap {
+  const participantsByEvent = buildEventParticipants(registrations, orderedEvents);
+  const conflictMap: EventRestConflictMap = {};
+
+  orderedEvents.forEach((eventName, index) => {
+    const prevEvent = index > 0 ? orderedEvents[index - 1] : null;
+    const nextEvent = index < orderedEvents.length - 1 ? orderedEvents[index + 1] : null;
+    const conflictIds = new Set<string>();
+
+    if (prevEvent) {
+      const prevParticipants = participantsByEvent.get(prevEvent);
+      const currentParticipants = participantsByEvent.get(eventName);
+      if (prevParticipants && currentParticipants) {
+        prevParticipants.forEach((_, id) => {
+          if (currentParticipants.has(id)) conflictIds.add(id);
+        });
+      }
+    }
+
+    if (nextEvent) {
+      const nextParticipants = participantsByEvent.get(nextEvent);
+      const currentParticipants = participantsByEvent.get(eventName);
+      if (nextParticipants && currentParticipants) {
+        nextParticipants.forEach((_, id) => {
+          if (currentParticipants.has(id)) conflictIds.add(id);
+        });
+      }
+    }
+
+    if (conflictIds.size > 0) {
+      conflictMap[eventName] = conflictIds;
+    }
+  });
+
+  return conflictMap;
+}
+
 interface RegistrationLike {
   id?: string;
   student?: {
+    _id?: string;
     id?: string;
     name?: string;
     registrationNumber?: string;
@@ -25,6 +70,7 @@ interface RegistrationLike {
 
 function getStudentKey(registration: RegistrationLike, index: number): string {
   return (
+    registration.student?._id ||
     registration.student?.id ||
     registration.student?.registrationNumber ||
     registration.id ||

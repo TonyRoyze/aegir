@@ -27,7 +27,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Progress } from "@/components/ui/progress";
 import {
   Drawer,
   DrawerContent,
@@ -36,8 +35,7 @@ import {
   DrawerTitle,
   DrawerDescription,
 } from "@/components/ui/drawer";
-import { Loader2, Trophy, Waves, Settings, ListOrdered } from "lucide-react";
-// import { cn } from "@/lib/utils";
+import { Loader2, Trophy, Waves, Settings, ListOrdered, Instagram, Facebook, Youtube } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 function formatTime(ms: number): string {
@@ -48,6 +46,15 @@ function formatTime(ms: number): string {
     return `${minutes}:${seconds.toString().padStart(2, "0")}.${centiseconds.toString().padStart(2, "0")}`;
   }
   return `${seconds}.${centiseconds.toString().padStart(2, "0")}`;
+}
+
+function formatDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 type ViewType = "faculty" | "event" | "heats";
@@ -102,9 +109,6 @@ function PublicMeetContent({
   const genderPrefix = selectedGender === "Male" ? "M:" : "W:";
   const filteredEvents = events.filter((e) => e.startsWith(genderPrefix));
 
-  const totalPoints =
-    leaderboard?.facultyLeaderboard.reduce((sum, f) => sum + f.score, 0) || 0;
-
   const eventResults = useQuery(
     api.results.getResults,
     selectedEventStanding
@@ -144,13 +148,17 @@ function PublicMeetContent({
     .sort((a, b) => a - b);
 
   return (
-    <div className="space-y-6">
-      <div className="text-center">
-        <h1 className="text-3xl font-black tracking-tight">
-          {leaderboard.meetName}
-        </h1>
-        <p className="text-muted-foreground">{leaderboard.meetDate}</p>
-      </div>
+    <div className="space-y-6 mx-auto max-w-2xl">
+      <Card className="text-center">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-3xl font-black tracking-tight">
+            {leaderboard.meetName}
+          </CardTitle>
+          <CardDescription className="text-base">
+            {formatDate(leaderboard.meetDate)}
+          </CardDescription>
+        </CardHeader>
+      </Card>
 
       {selectedView === "faculty" ? (
         <Card>
@@ -172,8 +180,6 @@ function PublicMeetContent({
                   <TableRow>
                     <TableHead className="w-16">Rank</TableHead>
                     <TableHead>Faculty</TableHead>
-                    <TableHead className="text-right">Points</TableHead>
-                    <TableHead className="w-32">Progress</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -190,15 +196,6 @@ function PublicMeetContent({
                       </TableCell>
                       <TableCell className="font-medium">
                         {faculty.name}
-                      </TableCell>
-                      <TableCell className="text-right font-semibold">
-                        {faculty.score}
-                      </TableCell>
-                      <TableCell>
-                        <Progress
-                          value={(faculty.score / (totalPoints || 1)) * 100}
-                          className="h-2"
-                        />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -461,6 +458,42 @@ function PublicMeetContent({
                 </div>
               </>
             )}
+          </div>
+
+          <div className="border-t p-4 mt-auto">
+            <p className="text-center text-xs text-muted-foreground mb-3">Follow us</p>
+            <div className="flex justify-center gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                asChild
+                className="h-12 w-12"
+              >
+                <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+                  <Instagram className="h-5 w-5" />
+                </a>
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                asChild
+                className="h-12 w-12"
+              >
+                <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
+                  <Facebook className="h-5 w-5" />
+                </a>
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                asChild
+                className="h-12 w-12"
+              >
+                <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" aria-label="YouTube">
+                  <Youtube className="h-5 w-5" />
+                </a>
+              </Button>
+            </div>
           </div>
         </DrawerContent>
       </Drawer>

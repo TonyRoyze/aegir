@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 
-import { EventRestSummary } from "@/lib/event-rest-utils"
+import { EventRestSummary, EventRestConflictMap } from "@/lib/event-rest-utils"
 import {
   buildMeetProgramEvents,
   MeetProgramRegistration,
@@ -17,9 +17,10 @@ interface MeetProgramProps {
   registrations: MeetProgramRegistration[];
   orderedEvents: string[];
   restSummaryByEvent?: Map<string, EventRestSummary>;
+  conflictMap?: EventRestConflictMap;
 }
 
-export function MeetProgram({ meet, registrations, orderedEvents, restSummaryByEvent }: MeetProgramProps) {
+export function MeetProgram({ meet, registrations, orderedEvents, restSummaryByEvent, conflictMap }: MeetProgramProps) {
   const eventsData = buildMeetProgramEvents(registrations, orderedEvents);
 
   return (
@@ -105,8 +106,10 @@ export function MeetProgram({ meet, registrations, orderedEvents, restSummaryByE
                       {Array.from({ length: LANES_PER_HEAT }).map((_, laneIndex) => {
                         const student = heat[laneIndex];
                         const rowNum = laneIndex + 1;
+                        const studentId = student?._id || student?.id || "";
+                        const isConflicted = studentId ? Boolean(conflictMap?.[event.name]?.has(studentId)) : false;
                         return (
-                          <div key={laneIndex} className="flex border-b border-black last:border-0 h-9">
+                          <div key={laneIndex} className={`flex border-b border-black last:border-0 h-9 ${isConflicted ? "bg-red-50 print:print-color-adjust-exact" : ""}`}>
                             <div className="w-12 border-r border-black p-1 flex items-center justify-center font-bold text-neutral-800">{rowNum}</div>
                             <div className="flex-1 border-r border-black p-1 flex items-center px-3 font-medium text-neutral-900">
                               {isRelayEvent ? (student?.faculty || "") : (student?.name || "")}

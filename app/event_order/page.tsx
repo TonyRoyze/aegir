@@ -2,23 +2,54 @@
 
 export const dynamic = "force-dynamic";
 
-import React, { useState, useEffect, useMemo } from "react"
-import { useQuery, useMutation } from "convex/react"
-import { api } from "@/convex/_generated/api"
-import { Id } from "@/convex/_generated/dataModel"
-import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
-import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Loader2, RefreshCcw, Download, WandSparkles } from "lucide-react"
-import { MeetProgram } from "@/components/print/meet-program"
-import { EventRestSummary, optimizeEventOrderForRest, summarizeEventRest } from "@/lib/event-rest-utils"
+import React, { useState, useEffect, useMemo } from "react";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
+  GripVertical,
+  Loader2,
+  RefreshCcw,
+  Download,
+  WandSparkles,
+} from "lucide-react";
+import { MeetProgram } from "@/components/print/meet-program";
+import {
+  EventRestSummary,
+  optimizeEventOrderForRest,
+  summarizeEventRest,
+  buildConflictMap,
+} from "@/lib/event-rest-utils";
 import {
   clearProgramEventOrder,
   loadProgramEventOrder,
   saveProgramEventOrder,
-} from "@/lib/program-event-order"
+} from "@/lib/program-event-order";
 
 // Sortable Item Component
 function SortableEventItem({
@@ -26,24 +57,22 @@ function SortableEventItem({
   name,
   restSummary,
 }: {
-  id: string,
-  name: string,
-  restSummary?: EventRestSummary,
+  id: string;
+  name: string;
+  restSummary?: EventRestSummary;
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-  } = useSortable({ id });
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({ id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
   };
 
-  const hasConflict = Boolean(restSummary && (restSummary.sharedWithPrevious > 0 || restSummary.sharedWithNext > 0));
+  const hasConflict = Boolean(
+    restSummary &&
+    (restSummary.sharedWithPrevious > 0 || restSummary.sharedWithNext > 0),
+  );
 
   return (
     <div
@@ -56,21 +85,28 @@ function SortableEventItem({
       }`}
     >
       <div className="flex items-center gap-2">
-      <button {...attributes} {...listeners} className="cursor-grab hover:bg-muted p-1 rounded active:cursor-grabbing touch-none">
-        <GripVertical className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
-      </button>
-      <span className="text-sm font-medium truncate flex-1">{name}</span>
+        <button
+          {...attributes}
+          {...listeners}
+          className="cursor-grab hover:bg-muted p-1 rounded active:cursor-grabbing touch-none"
+        >
+          <GripVertical className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
+        </button>
+        <span className="text-sm font-medium truncate flex-1">{name}</span>
       </div>
       {hasConflict ? (
         <div className="mt-2 space-y-1 pl-8 text-[11px] leading-4 text-red-700">
           {restSummary?.sharedWithPrevious ? (
             <div>
-              {restSummary.sharedWithPrevious} swimmer{restSummary.sharedWithPrevious === 1 ? "" : "s"} also in previous event
+              {restSummary.sharedWithPrevious} swimmer
+              {restSummary.sharedWithPrevious === 1 ? "" : "s"} also in previous
+              event
             </div>
           ) : null}
           {restSummary?.sharedWithNext ? (
             <div>
-              {restSummary.sharedWithNext} swimmer{restSummary.sharedWithNext === 1 ? "" : "s"} also in next event
+              {restSummary.sharedWithNext} swimmer
+              {restSummary.sharedWithNext === 1 ? "" : "s"} also in next event
             </div>
           ) : null}
         </div>
@@ -82,8 +118,13 @@ function SortableEventItem({
 export default function EventOrderPage() {
   const [selectedMeetId, setSelectedMeetId] = useState<string | null>(null);
   const meets = useQuery(api.meets.getMeets);
-  const registrations = useQuery(api.registrations.get, selectedMeetId ? { meetId: selectedMeetId as Id<"meets"> } : "skip");
-  const generateHeatAssignments = useMutation(api.meets.generateHeatAssignments);
+  const registrations = useQuery(
+    api.registrations.get,
+    selectedMeetId ? { meetId: selectedMeetId as Id<"meets"> } : "skip",
+  );
+  const generateHeatAssignments = useMutation(
+    api.meets.generateHeatAssignments,
+  );
 
   // Derive local state for optimistic updates or just to handle sorting
   const [orderedEvents, setOrderedEvents] = useState<string[]>([]);
@@ -92,13 +133,13 @@ export default function EventOrderPage() {
   useEffect(() => {
     if (meets && meets.length > 0 && !selectedMeetId) {
       // Prefer active meet or first one
-      const active = meets.find(m => m.status === 'active') || meets[0];
+      const active = meets.find((m) => m.status === "active") || meets[0];
       setSelectedMeetId(active._id);
     }
   }, [meets, selectedMeetId]);
 
   // Sync ordered events when selected meet changes
-  const selectedMeet = meets?.find(m => m._id === selectedMeetId);
+  const selectedMeet = meets?.find((m) => m._id === selectedMeetId);
   useEffect(() => {
     if (selectedMeet) {
       setOrderedEvents(loadProgramEventOrder(selectedMeet._id, selectedMeet.events));
@@ -109,7 +150,7 @@ export default function EventOrderPage() {
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
 
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -145,12 +186,14 @@ export default function EventOrderPage() {
     [restSummaries],
   );
 
+  const conflictMap = useMemo(
+    () => buildConflictMap(registrations || [], orderedEvents),
+    [orderedEvents, registrations],
+  );
+
   const totalAdjacentConflicts = useMemo(
     () =>
-      restSummaries.reduce(
-        (sum, summary) => sum + summary.sharedWithNext,
-        0,
-      ),
+      restSummaries.reduce((sum, summary) => sum + summary.sharedWithNext, 0),
     [restSummaries],
   );
 
@@ -159,7 +202,10 @@ export default function EventOrderPage() {
       return false;
     }
 
-    const suggestedOrder = optimizeEventOrderForRest(registrations, orderedEvents);
+    const suggestedOrder = optimizeEventOrderForRest(
+      registrations,
+      orderedEvents,
+    );
     return suggestedOrder.join("|") !== orderedEvents.join("|");
   }, [orderedEvents, registrations]);
 
@@ -168,7 +214,10 @@ export default function EventOrderPage() {
       return;
     }
 
-    const optimizedOrder = optimizeEventOrderForRest(registrations, orderedEvents);
+    const optimizedOrder = optimizeEventOrderForRest(
+      registrations,
+      orderedEvents,
+    );
     if (optimizedOrder.join("|") === orderedEvents.join("|")) {
       return;
     }
@@ -183,10 +232,10 @@ export default function EventOrderPage() {
     if (!selectedMeet) return;
     setDownloading(true);
     try {
-      const response = await fetch('/api/meet-program-pdf', {
-        method: 'POST',
+      const response = await fetch("/api/meet-program-pdf", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           meet: {
@@ -205,7 +254,7 @@ export default function EventOrderPage() {
       const blob = await response.blob();
 
       const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
       link.download = `${selectedMeet.name} - Start List.pdf`;
       document.body.appendChild(link);
@@ -213,25 +262,30 @@ export default function EventOrderPage() {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('PDF generation failed:', error);
-      alert('Failed to generate PDF. Please try again.');
+      console.error("PDF generation failed:", error);
+      alert("Failed to generate PDF. Please try again.");
     } finally {
       setDownloading(false);
     }
   };
 
-
-  if (!meets) return <div className="flex items-center justify-center min-h-screen text-muted-foreground"><Loader2 className="animate-spin mr-2" /> Loading...</div>;
+  if (!meets)
+    return (
+      <div className="flex items-center justify-center min-h-screen text-muted-foreground">
+        <Loader2 className="animate-spin mr-2" /> Loading...
+      </div>
+    );
 
   return (
     <div className="flex h-screen bg-background font-sans text-neutral-900">
       {/* Left Main Content - Preview Area */}
       <div className="flex-1 overflow-auto bg-slate-100 p-8 hidden xl:block print:block print:p-0 print:bg-white custom-scrollbar">
         <MeetProgram
-          meet={selectedMeet || { name: 'Meet Name', events: [] }}
+          meet={selectedMeet || { name: "Meet Name", events: [] }}
           registrations={registrations || []}
           orderedEvents={orderedEvents}
           restSummaryByEvent={restSummaryByEvent}
+          conflictMap={conflictMap}
         />
       </div>
 
@@ -240,16 +294,28 @@ export default function EventOrderPage() {
         <div>
           <div className="space-y-4">
             <div className="space-y-2">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Select Meet</label>
-              <Select value={selectedMeetId || ""} onValueChange={setSelectedMeetId}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select Meet" />
-                </SelectTrigger>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Select Meet
+              </label>
+              <Select
+                value={selectedMeetId || ""}
+                onValueChange={setSelectedMeetId}
+              >
+                {meets?.length === 0 ? (
+                  <p className="text-sm text-muted-foreground mt-2">
+                    No meets available.
+                  </p>
+                ) : (
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select Meet" />
+                  </SelectTrigger>
+                )}
                 <SelectContent>
-                  {meets.map(m => (
-                    <SelectItem key={m._id} value={m._id}>{m.name}</SelectItem>
+                  {meets?.map((m) => (
+                    <SelectItem key={m._id} value={m._id}>
+                      {m.name}
+                    </SelectItem>
                   ))}
-                  {meets.length === 0 && <SelectItem value="" disabled>No meets found</SelectItem>}
                 </SelectContent>
               </Select>
             </div>
@@ -265,11 +331,16 @@ export default function EventOrderPage() {
               ) : (
                 <Download className="w-4 h-4" />
               )}
-              {downloading ? 'Generating PDF...' : 'Download PDF'}
+              {downloading ? "Generating PDF..." : "Download PDF"}
             </Button>
 
             <Button
-              onClick={() => selectedMeetId && generateHeatAssignments({ meetId: selectedMeetId as Id<"meets"> })}
+              onClick={() =>
+                selectedMeetId &&
+                generateHeatAssignments({
+                  meetId: selectedMeetId as Id<"meets">,
+                })
+              }
               disabled={!selectedMeetId}
               variant="outline"
               className="w-full gap-2"
@@ -281,7 +352,9 @@ export default function EventOrderPage() {
 
             <Button
               onClick={handleAutoSort}
-              disabled={!selectedMeetId || !registrations || !hasAutoSortImprovement}
+              disabled={
+                !selectedMeetId || !registrations || !hasAutoSortImprovement
+              }
               variant="outline"
               className="w-full gap-2"
               size="lg"
@@ -290,11 +363,13 @@ export default function EventOrderPage() {
               Auto Sort for Rest
             </Button>
 
-            <div className={`rounded-lg border px-3 py-2 text-sm ${
-              totalAdjacentConflicts > 0
-                ? "border-red-200 bg-red-50 text-red-800"
-                : "border-emerald-200 bg-emerald-50 text-emerald-800"
-            }`}>
+            <div
+              className={`rounded-lg border px-3 py-2 text-sm ${
+                totalAdjacentConflicts > 0
+                  ? "border-red-200 bg-red-50 text-red-800"
+                  : "border-emerald-200 bg-emerald-50 text-emerald-800"
+              }`}
+            >
               {totalAdjacentConflicts > 0
                 ? `${totalAdjacentConflicts} back-to-back swimmer conflict${totalAdjacentConflicts === 1 ? "" : "s"} detected`
                 : "No back-to-back swimmer conflicts in the current order"}
@@ -304,13 +379,18 @@ export default function EventOrderPage() {
 
         <div className="flex-1 overflow-hidden flex flex-col min-h-0">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Events Order</h3>
-            <span className="text-[10px] text-muted-foreground bg-slate-100 px-2 py-0.5 rounded-full">Drag to Reorder</span>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Events Order
+            </h3>
+            <span className="text-[10px] text-muted-foreground bg-slate-100 px-2 py-0.5 rounded-full">
+              Drag to Reorder
+            </span>
             <Button
               variant="ghost"
               size="icon"
               onClick={() => handleResetOrder()}
-              title="Reset Order">
+              title="Reset Order"
+            >
               <RefreshCcw className="h-4 w-4" />
             </Button>
           </div>
@@ -345,5 +425,5 @@ export default function EventOrderPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }
