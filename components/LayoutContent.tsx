@@ -3,7 +3,7 @@
 import { createContext, useContext, useState } from "react";
 import { usePathname } from "next/navigation";
 import { LeftSidebar } from "@/components/LeftSidebar";
-import { cn } from '@/lib/utils';
+import { cn } from "@/lib/utils";
 
 const SidebarContext = createContext<{
   collapsed: boolean;
@@ -24,9 +24,7 @@ export function LayoutContent({ children }: { children: React.ReactNode }) {
   if (isPublicMeetPage) {
     return (
       <main className="flex-1">
-        <div className="container mx-auto px-4 py-8">
-          {children}
-        </div>
+        <div className="container mx-auto px-4 py-8">{children}</div>
       </main>
     );
   }
@@ -38,10 +36,16 @@ export function LayoutContent({ children }: { children: React.ReactNode }) {
         className={cn(
           "flex-1 print:pl-0 transition-[padding] duration-300",
           isLoginPage || isPreviewPage ? "" : "md:pl-64",
-          collapsed && "md:!pl-16"
+          collapsed && "md:pl-16",
         )}
       >
-        <div className={isLoginPage || isPreviewPage ? "" : "container mx-auto print:p-0 print:max-w-none px-4 py-8"}>
+        <div
+          className={
+            isLoginPage || isPreviewPage
+              ? ""
+              : "container mx-auto print:p-0 print:max-w-none px-4 py-8"
+          }
+        >
           {children}
         </div>
       </main>
