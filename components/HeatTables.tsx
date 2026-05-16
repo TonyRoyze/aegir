@@ -111,7 +111,47 @@ function StudentRow({
     <div className="flex border-b border-black last:border-0 h-9 transition-colors hover:bg-slate-50/50">
       <div className="w-12 border-r border-black p-1 flex items-center justify-center font-bold text-neutral-800">{laneIndex + 1}</div>
       <div className="flex-1 border-r border-black p-1 flex items-center px-3 font-medium text-neutral-900 truncate">
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
+        {isRelayEvent
+          ? student?.faculty === "USCS"
+            ? "UCSC"
+            : student?.faculty || ""
+          : student?.name || ""}
+||||||| ancestor
         {isRelayEvent ? (student?.faculty || "") : (student?.name || "")}
+=======
+        {
+          isRelayEvent
+            ? (student?.faculty === "USCS"
+                ? "UCSC"
+                : student?.faculty || "")
+            : student?.name || ""
+        }
+||||||| ancestor
+        {isRelayEvent ? (student?.faculty || "") : (student?.name || "")}
+=======
+        {
+          isRelayEvent
+            ? (student?.faculty === "USCS"
+                ? "UCSC"
+                : student?.faculty || "")
+            : student?.name || ""
+        }
+>>>>>>> theirs
+||||||| ancestor
+        {isRelayEvent ? (student?.faculty || "") : (student?.name || "")}
+=======
+        {
+          isRelayEvent
+            ? (student?.faculty === "USCS"
+                ? "UCSC"
+                : student?.faculty || "")
+            : student?.name || ""
+        }
+>>>>>>> theirs
+>>>>>>> theirs
       </div>
       {!isRelayEvent && (
         <div className="w-24 border-r border-black p-1 flex items-center justify-center font-medium text-neutral-900">
