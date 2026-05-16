@@ -7,7 +7,7 @@ import {
   buildMeetProgramEvents,
   MeetProgramRegistration,
 } from "@/lib/meet-program-pdf"
-import { LANES_PER_HEAT } from "@/lib/swimming-utils"
+import { LANES_PER_HEAT, displayFaculty } from "@/lib/swimming-utils"
 
 interface MeetProgramProps {
   meet: {
@@ -112,11 +112,13 @@ export function MeetProgram({ meet, registrations, orderedEvents, restSummaryByE
                           <div key={laneIndex} className={`flex border-b border-black last:border-0 h-9 ${isConflicted ? "bg-red-50 print:print-color-adjust-exact" : ""}`}>
                             <div className="w-12 border-r border-black p-1 flex items-center justify-center font-bold text-neutral-800">{rowNum}</div>
                             <div className="flex-1 border-r border-black p-1 flex items-center px-3 font-medium text-neutral-900">
-                              {isRelayEvent ? (student?.faculty || "") : (student?.name || "")}
+                              {isRelayEvent
+                    ? displayFaculty(student?.faculty)
+                    : student?.name || ""}
                             </div>
                             {!isRelayEvent && (
                               <div className="w-24 border-r border-black p-1 flex items-center justify-center font-medium text-neutral-900">
-                                {student?.faculty || ""}
+                                {displayFaculty(student?.faculty)}
                               </div>
                             )}
                             <div className="w-24 border-r border-black p-1"></div>

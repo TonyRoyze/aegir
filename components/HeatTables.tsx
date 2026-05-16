@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect } from "react"
 import Image from "next/image"
 import { Input } from "@/components/ui/input"
-import { assignToHeats, LANES_PER_HEAT } from "@/lib/swimming-utils"
+import { assignToHeats, displayFaculty, LANES_PER_HEAT } from "@/lib/swimming-utils"
 
 // --- Helpers ---
 
@@ -112,14 +112,12 @@ function StudentRow({
       <div className="w-12 border-r border-black p-1 flex items-center justify-center font-bold text-neutral-800">{laneIndex + 1}</div>
       <div className="flex-1 border-r border-black p-1 flex items-center px-3 font-medium text-neutral-900 truncate">
         {isRelayEvent
-          ? student?.faculty === "USCS"
-            ? "UCSC"
-            : student?.faculty || ""
+          ? displayFaculty(student?.faculty) || ""
           : student?.name || ""}
       </div>
       {!isRelayEvent && (
         <div className="w-24 border-r border-black p-1 flex items-center justify-center font-medium text-neutral-900">
-          {student?.faculty || ""}
+          {displayFaculty(student?.faculty) || ""}
         </div>
       )}
       <div className="w-24 border-r border-black p-1 flex items-center justify-center gap-0.5 bg-slate-50/30">

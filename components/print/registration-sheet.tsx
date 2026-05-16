@@ -2,6 +2,7 @@
 
 import { useMemo } from "react"
 import { CheckIcon } from "lucide-react"
+import { displayFaculty } from "@/lib/swimming-utils"
 import type { RegistrationSheetDocumentData, RegistrationSheetRegistration } from "@/lib/registration-sheet-pdf"
 
 interface RegistrationSheetProps {
@@ -39,7 +40,7 @@ export function RegistrationSheet({ meet, registrations, filters }: Registration
         <div className="flex items-center gap-2 mb-2">
           <span className="w-28">Faculty/ Institute</span>
           <span>: -</span>
-          <span className="flex-1 border-b border-dotted border-black">{filters.faculty}</span>
+          <span className="flex-1 border-b border-dotted border-black">{displayFaculty(filters.faculty)}</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="w-28">Date</span>
@@ -87,7 +88,7 @@ export function RegistrationSheet({ meet, registrations, filters }: Registration
           {filteredRegistrations.length === 0 ? (
             <tr>
               <td colSpan={events.length + 3} className="border border-black p-4 text-center text-neutral-500 italic">
-                No registrations found for {filters.gender === "Male" ? "Men" : "Women"} - {filters.faculty}
+                No registrations found for {filters.gender === "Male" ? "Men" : "Women"} - {displayFaculty(filters.faculty)}
               </td>
             </tr>
           ) : (
