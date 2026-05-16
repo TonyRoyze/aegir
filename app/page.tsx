@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { displayFaculty } from "@/lib/swimming-utils";
 import {
   Select,
   SelectContent,
@@ -175,7 +176,7 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-primary">
-                  {facultyLeaderboard[0]?.name || "N/A"}
+                  {displayFaculty(facultyLeaderboard[0]?.name) || "N/A"}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Leading with {facultyLeaderboard[0]?.score || 0} points
@@ -217,7 +218,7 @@ export default function DashboardPage() {
                         </div>
                         <div className="flex-1 space-y-1.5">
                           <div className="flex justify-between text-sm font-medium">
-                            <span>{faculty.name}</span>
+                            <span>{displayFaculty(faculty.name)}</span>
                             <span className="text-muted-foreground text-xs font-semibold">
                               {faculty.score} / {totalPoints}
                             </span>
@@ -270,7 +271,7 @@ export default function DashboardPage() {
                               {student.name}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              {student.faculty}
+                              {displayFaculty(student.faculty)}
                             </p>
                           </div>
                         </div>
@@ -406,7 +407,7 @@ export default function DashboardPage() {
                               {result.student?.registrationNumber}
                             </div>
                           </TableCell>
-                          <TableCell>{result.student?.faculty}</TableCell>
+                          <TableCell>{displayFaculty(result.student?.faculty)}</TableCell>
                           <TableCell className="text-right font-mono">
                             {formatTime(result.timing)}
                           </TableCell>

@@ -1,6 +1,11 @@
 export const LANES_PER_HEAT = 6;
 export const DEFAULT_LANE_ORDER = [3, 4, 2, 5, 1, 6];
 
+export function displayFaculty(faculty: string | null | undefined): string {
+  if (!faculty) return "";
+  return faculty === "USCS" ? "UCSC" : faculty;
+}
+
 function sortBySeedDesc(students: any[]): any[] {
   return [...students].sort((a, b) => {
     const seedA = a.seed ?? 0;

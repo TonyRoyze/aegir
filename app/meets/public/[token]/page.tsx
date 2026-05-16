@@ -5,6 +5,7 @@ import Image from "next/image";
 import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
+import { displayFaculty } from "@/lib/swimming-utils";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -240,7 +241,7 @@ function PoolHeatTable({
               </span>
               {!isRelayEvent ? (
                 <span className="truncate text-right text-[12px] font-semibold text-[#6f8193]">
-                  {participant?.faculty || ""}
+                  {displayFaculty(participant?.faculty)}
                 </span>
               ) : null}
             </div>
@@ -538,7 +539,7 @@ function PublicMeetContent({
                           key={result._id}
                           rank={result.rank ?? 0}
                           primary={result.student?.nameInUse || "Unassigned"}
-                          secondary={result.student?.faculty}
+                          secondary={displayFaculty(result.student?.faculty)}
                           trailing={formatTime(result.timing)}
                         />
                       ))}
