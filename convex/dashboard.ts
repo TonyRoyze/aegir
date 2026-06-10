@@ -131,6 +131,8 @@ export const getStats = query({
         totalParticipants: 0,
         totalEntries: 0,
         facultyLeaderboard: [],
+        facultyLeaderboardMale: [],
+        facultyLeaderboardFemale: [],
         studentLeaderboard: []
       };
     }
@@ -192,6 +194,8 @@ export const getStats = query({
 
     // 5. Aggregate Stats
     const facultyStats = new Map<string, number>();
+    const facultyStatsMale = new Map<string, number>();
+    const facultyStatsFemale = new Map<string, number>();
     const studentStats = new Map<string, { id: string, name: string, faculty: string, score: number }>();
 
     let totalEntries = 0;
@@ -205,6 +209,11 @@ export const getStats = query({
 
       const isRelay = res.event.toLowerCase().includes("relay");
       const student = studentsByExternalId.get(res.studentId);
+      const gender = res.event.startsWith("M:") ? "male"
+        : res.event.startsWith("W:") ? "female"
+        : student?.gender === "Male" ? "male"
+        : student?.gender === "Female" ? "female"
+        : null;
       
       let faculty = "Unknown";
       if (student) {
@@ -217,8 +226,15 @@ export const getStats = query({
         return;
       }
 
-      // Faculty Score
+      // Faculty Score (overall)
       facultyStats.set(faculty, (facultyStats.get(faculty) || 0) + res.points);
+
+      // Faculty Score (by gender)
+      if (gender === "male") {
+        facultyStatsMale.set(faculty, (facultyStatsMale.get(faculty) || 0) + res.points);
+      } else if (gender === "female") {
+        facultyStatsFemale.set(faculty, (facultyStatsFemale.get(faculty) || 0) + res.points);
+      }
 
       // Student Score (Only for individual events)
       if (student && !isRelay) {
@@ -239,6 +255,14 @@ export const getStats = query({
       .map(([name, score]) => ({ name, score }))
       .sort((a, b) => b.score - a.score);
 
+    const facultyLeaderboardMale = Array.from(facultyStatsMale.entries())
+      .map(([name, score]) => ({ name, score }))
+      .sort((a, b) => b.score - a.score);
+
+    const facultyLeaderboardFemale = Array.from(facultyStatsFemale.entries())
+      .map(([name, score]) => ({ name, score }))
+      .sort((a, b) => b.score - a.score);
+
     const studentLeaderboard = Array.from(studentStats.values())
       .sort((a, b) => b.score - a.score)
       .slice(0, 10); // Top 10
@@ -247,6 +271,8 @@ export const getStats = query({
       totalParticipants: studentMap.size,
       totalEntries,
       facultyLeaderboard,
+      facultyLeaderboardMale,
+      facultyLeaderboardFemale,
       studentLeaderboard
     };
   },
