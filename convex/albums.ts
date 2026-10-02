@@ -28,34 +28,37 @@ export const create = action({
     date: v.string(),
     description: v.string(),
     link: v.string(),
+    coverImage: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    let coverImage: string | undefined;
-    try {
-      const response = await fetch(args.link, {
-        headers: {
-          "User-Agent": "bot", // Some sites require a user agent
-        },
-      });
-      const html = await response.text();
+    let coverImage = args.coverImage?.trim() || undefined;
+    if (!coverImage) {
+      try {
+        const response = await fetch(args.link, {
+          headers: {
+            "User-Agent": "bot", // Some sites require a user agent
+          },
+        });
+        const html = await response.text();
 
-      // Simple regex to find og:image.
-      // Matches both property="og:image" content="..." and content="..." property="og:image"
-      const match =
-        html.match(
-          /<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["'][^>]*>/i,
-        ) ||
-        html.match(
-          /<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["'][^>]*>/i,
-        );
+        // Simple regex to find og:image.
+        // Matches both property="og:image" content="..." and content="..." property="og:image"
+        const match =
+          html.match(
+            /<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["'][^>]*>/i,
+          ) ||
+          html.match(
+            /<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["'][^>]*>/i,
+          );
 
-      if (match && match[1]) {
-        coverImage = match[1];
-        // Basic HTML entity decoding
-        coverImage = coverImage.replace(/&amp;/g, "&");
+        if (match && match[1]) {
+          coverImage = match[1];
+          // Basic HTML entity decoding
+          coverImage = coverImage.replace(/&amp;/g, "&");
+        }
+      } catch (error) {
+        console.error("Failed to fetch OG image", error);
       }
-    } catch (error) {
-      console.error("Failed to fetch OG image", error);
     }
 
     await ctx.runMutation(internal.albums.internalCreate, {
