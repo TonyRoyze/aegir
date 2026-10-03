@@ -11,19 +11,6 @@ export const FACULTIES = [
   "USCS",
 ] as const;
 
-export type Faculty = (typeof FACULTIES)[number];
-
-export type Gender = "Male" | "Female";
-
-export interface Student {
-  id: string;
-  name: string;
-  nameInUse: string;
-  gender: Gender;
-  faculty: Faculty;
-  seed?: number;
-}
-
 export const SWIM_EVENTS = [
   "25m Freestyle",
   "50m Freestyle",
@@ -49,13 +36,3 @@ export const SWIM_EVENTS = [
   "4x50m Freestyle Relay",
   "4x50m Medley Relay",
 ] as const;
-
-export type SwimEvent = (typeof SWIM_EVENTS)[number];
-
-export interface Registration {
-  id: string;
-  student: Student;
-  events: SwimEvent[];
-  meetId: string;
-  registeredAt: Date;
-}

@@ -32,14 +32,8 @@ import {
 } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 
-// Helper
-const formatTime = (ms: number | undefined | null) => {
-  if (ms === undefined || ms === null || ms === 0) return "-";
-  const minutes = Math.floor(ms / 60000);
-  const seconds = Math.floor((ms % 60000) / 1000);
-  const hundredths = Math.floor((ms % 1000) / 10);
-  return `${minutes}:${seconds.toString().padStart(2, "0")}.${hundredths.toString().padStart(2, "0")}`;
-};
+import { preferredMeetId } from "@/lib/meet-selection";
+import { formatTime } from "@/lib/time";
 
 const formatLeaderboardRank = (index: number) => {
   if (index === 0) return "🥇";
@@ -47,6 +41,65 @@ const formatLeaderboardRank = (index: number) => {
   if (index === 2) return "🥉";
   return index + 1;
 };
+
+function TeamRankingCard({
+  title,
+  description,
+  entries,
+  color,
+}: {
+  title: string;
+  description: string;
+  entries: { name: string; score: number }[];
+  color: string;
+}) {
+  const total = entries.reduce((sum, entry) => sum + entry.score, 0);
+  return (
+    <Card className="h-full">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Trophy className={cn("h-5 w-5", color)} />
+          {title}
+        </CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {entries.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No data yet
+            </div>
+          ) : (
+            entries.map((entry, index) => (
+              <div key={entry.name} className="flex items-center gap-4">
+                <div
+                  className={cn(
+                    "flex h-8 w-8 items-center justify-center font-bold text-xs",
+                    index <= 2 ? "text-2xl" : "text-muted-foreground",
+                  )}
+                >
+                  {formatLeaderboardRank(index)}
+                </div>
+                <div className="flex-1 space-y-1.5">
+                  <div className="flex justify-between text-sm font-medium">
+                    <span>{displayFaculty(entry.name)}</span>
+                    <span className="text-muted-foreground text-xs font-semibold">
+                      {entry.score} / {total}
+                    </span>
+                  </div>
+                  <Progress
+                    value={(entry.score / (total || 1)) * 100}
+                    className="h-2"
+                  />
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function DashboardPage() {
   const [selectedMeetId, setSelectedMeetId] = useState<string | null>(null);
@@ -59,15 +112,7 @@ export default function DashboardPage() {
   const genderPrefix = selectedGender === "Male" ? "M:" : "W:";
   const meets = useQuery(api.meets.getMeets);
 
-  const preferredMeetId =
-    meets && meets.length > 0
-      ? (meets.find((m) => m.status === "active")?._id ?? meets[0]._id)
-      : null;
-
-  const effectiveSelectedMeetId =
-    selectedMeetId && meets?.some((meet) => meet._id === selectedMeetId)
-      ? selectedMeetId
-      : preferredMeetId;
+  const effectiveSelectedMeetId = preferredMeetId(meets, selectedMeetId);
 
   const stats = useQuery(
     api.dashboard.getStats,
@@ -94,8 +139,6 @@ export default function DashboardPage() {
   const facultyLeaderboardMale = stats?.facultyLeaderboardMale ?? [];
   const facultyLeaderboardFemale = stats?.facultyLeaderboardFemale ?? [];
   const studentLeaderboard = stats?.studentLeaderboard ?? [];
-
-  const totalPoints = facultyLeaderboard.reduce((acc, f) => acc + f.score, 0);
 
   return (
     <div className="space-y-8 p-4 md:p-8 animate-in fade-in duration-500">
@@ -165,7 +208,7 @@ export default function DashboardPage() {
             <Card className="bg-linear-to-br from-primary/10 to-background border-primary/20">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-primary">
-                  Top Faculty
+                  Top Team
                 </CardTitle>
                 <Trophy className="h-4 w-4 text-primary" />
               </CardHeader>
@@ -181,54 +224,12 @@ export default function DashboardPage() {
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
-            {/* Faculty Leaderboard */}
-            <Card className="h-full">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Trophy className="h-5 w-5 text-amber-500" />
-                  Faculty Rankings
-                </CardTitle>
-                <CardDescription>Based on total points</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {facultyLeaderboard.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      No data yet
-                    </div>
-                  ) : (
-                    facultyLeaderboard.map((faculty, index) => (
-                      <div
-                        key={faculty.name}
-                        className="flex items-center gap-4"
-                      >
-                        <div
-                          className={cn(
-                            "flex h-8 w-8 items-center justify-center font-bold text-xs",
-                            index <= 2 && "text-2xl",
-                            index > 2 && "text-muted-foreground",
-                          )}
-                        >
-                          {formatLeaderboardRank(index)}
-                        </div>
-                        <div className="flex-1 space-y-1.5">
-                          <div className="flex justify-between text-sm font-medium">
-                            <span>{displayFaculty(faculty.name)}</span>
-                            <span className="text-muted-foreground text-xs font-semibold">
-                              {faculty.score} / {totalPoints}
-                            </span>
-                          </div>
-                          <Progress
-                            value={(faculty.score / (totalPoints || 1)) * 100}
-                            className="h-2"
-                          />
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            <TeamRankingCard
+              title="Team Rankings"
+              description="Based on total points"
+              entries={facultyLeaderboard}
+              color="text-amber-500"
+            />
 
             {/* Student Leaderboard */}
             <Card className="h-full">
@@ -284,118 +285,27 @@ export default function DashboardPage() {
             </Card>
           </div>
 
-          {/* Gender-specific Faculty Leaderboards */}
+          {/* Gender-specific Team Leaderboards */}
           <div className="grid gap-4 md:grid-cols-2">
-            {/* Men's Faculty Leaderboard */}
-            <Card className="h-full">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Trophy className="h-5 w-5 text-blue-500" />
-                  Men's Faculty Rankings
-                </CardTitle>
-                <CardDescription>Points from men's events</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {facultyLeaderboardMale.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      No data yet
-                    </div>
-                  ) : (
-                    facultyLeaderboardMale.map((faculty, index) => {
-                      const totalMale = facultyLeaderboardMale.reduce((acc, f) => acc + f.score, 0);
-                      return (
-                        <div
-                          key={faculty.name}
-                          className="flex items-center gap-4"
-                        >
-                          <div
-                            className={cn(
-                              "flex h-8 w-8 items-center justify-center font-bold text-xs",
-                              index <= 2 && "text-2xl",
-                              index > 2 && "text-muted-foreground",
-                            )}
-                          >
-                            {formatLeaderboardRank(index)}
-                          </div>
-                          <div className="flex-1 space-y-1.5">
-                            <div className="flex justify-between text-sm font-medium">
-                              <span>{displayFaculty(faculty.name)}</span>
-                              <span className="text-muted-foreground text-xs font-semibold">
-                                {faculty.score} / {totalMale}
-                              </span>
-                            </div>
-                            <Progress
-                              value={(faculty.score / (totalMale || 1)) * 100}
-                              className="h-2"
-                            />
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Women's Faculty Leaderboard */}
-            <Card className="h-full">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Trophy className="h-5 w-5 text-pink-500" />
-                  Women's Faculty Rankings
-                </CardTitle>
-                <CardDescription>Points from women's events</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {facultyLeaderboardFemale.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      No data yet
-                    </div>
-                  ) : (
-                    facultyLeaderboardFemale.map((faculty, index) => {
-                      const totalFemale = facultyLeaderboardFemale.reduce((acc, f) => acc + f.score, 0);
-                      return (
-                        <div
-                          key={faculty.name}
-                          className="flex items-center gap-4"
-                        >
-                          <div
-                            className={cn(
-                              "flex h-8 w-8 items-center justify-center font-bold text-xs",
-                              index <= 2 && "text-2xl",
-                              index > 2 && "text-muted-foreground",
-                            )}
-                          >
-                            {formatLeaderboardRank(index)}
-                          </div>
-                          <div className="flex-1 space-y-1.5">
-                            <div className="flex justify-between text-sm font-medium">
-                              <span>{displayFaculty(faculty.name)}</span>
-                              <span className="text-muted-foreground text-xs font-semibold">
-                                {faculty.score} / {totalFemale}
-                              </span>
-                            </div>
-                            <Progress
-                              value={(faculty.score / (totalFemale || 1)) * 100}
-                              className="h-2"
-                            />
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            <TeamRankingCard
+              title="Men's Team Rankings"
+              description="Points from men's events"
+              entries={facultyLeaderboardMale}
+              color="text-blue-500"
+            />
+            <TeamRankingCard
+              title="Women's Team Rankings"
+              description="Points from women's events"
+              entries={facultyLeaderboardFemale}
+              color="text-pink-500"
+            />
           </div>
 
           {/* Event Standings */}
           <Card className="h-full mt-4">
             <CardHeader>
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div className="flew flw-col gap-2">
+                <div className="flex flex-col gap-2">
                   <CardTitle className="flex items-center gap-2">
                     <Waves className="h-5 w-5 text-blue-500" />
                     Event Standings
@@ -468,7 +378,7 @@ export default function DashboardPage() {
                     <TableRow>
                       <TableHead className="w-16">Rank</TableHead>
                       <TableHead>Student</TableHead>
-                      <TableHead>Faculty</TableHead>
+                      <TableHead>Team</TableHead>
                       <TableHead className="text-right">Time</TableHead>
                       <TableHead className="text-right">Points</TableHead>
                     </TableRow>
@@ -503,13 +413,17 @@ export default function DashboardPage() {
                           </TableCell>
                           <TableCell>
                             <div className="font-medium">
-                              {result.student?.name}
+                              {result.student?.name || result.teamName}
                             </div>
                             <div className="text-xs text-muted-foreground">
                               {result.student?.registrationNumber}
                             </div>
                           </TableCell>
-                          <TableCell>{displayFaculty(result.student?.faculty)}</TableCell>
+                          <TableCell>
+                            {displayFaculty(
+                              result.teamName || result.student?.faculty,
+                            )}
+                          </TableCell>
                           <TableCell className="text-right font-mono">
                             {formatTime(result.timing)}
                           </TableCell>

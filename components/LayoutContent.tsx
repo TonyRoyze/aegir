@@ -3,6 +3,7 @@
 import { createContext, useContext, useState } from "react";
 import { usePathname } from "next/navigation";
 import { LeftSidebar } from "@/components/LeftSidebar";
+import { isPublicMeetRoute } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 const SidebarContext = createContext<{
@@ -18,8 +19,7 @@ export function LayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const isLoginPage = pathname === "/login";
-  const isPreviewPage = pathname.startsWith("/preview");
-  const isPublicMeetPage = pathname.startsWith("/meets/public");
+  const isPublicMeetPage = isPublicMeetRoute(pathname);
 
   if (isPublicMeetPage) {
     return (
@@ -31,17 +31,17 @@ export function LayoutContent({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarContext.Provider value={{ collapsed, setCollapsed }}>
-      {!isLoginPage && !isPreviewPage && <LeftSidebar />}
+      {!isLoginPage && <LeftSidebar />}
       <main
         className={cn(
           "flex-1 print:pl-0 transition-[padding] duration-300",
-          isLoginPage || isPreviewPage ? "" : "md:pl-64",
+          isLoginPage ? "" : "md:pl-64",
           collapsed && "md:pl-16",
         )}
       >
         <div
           className={
-            isLoginPage || isPreviewPage
+            isLoginPage
               ? ""
               : "container mx-auto print:p-0 print:max-w-none px-4 py-8"
           }

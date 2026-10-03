@@ -27,15 +27,9 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { assignToHeats, LANES_PER_HEAT } from "@/lib/swimming-utils";
 
-function formatTime(ms: number): string {
-  const minutes = Math.floor(ms / 60000);
-  const seconds = Math.floor((ms % 60000) / 1000);
-  const centiseconds = Math.floor((ms % 1000) / 10);
-  if (minutes > 0) {
-    return `${minutes}:${seconds.toString().padStart(2, "0")}.${centiseconds.toString().padStart(2, "0")}`;
-  }
-  return `${seconds}.${centiseconds.toString().padStart(2, "0")}`;
-}
+import { formatTime } from "@/lib/time";
+import { relayTeams } from "@/lib/meet-participants";
+import type { MeetProgramStudent } from "@/lib/meet-program-pdf";
 
 function formatDate(dateStr: string): string {
   const date = new Date(dateStr);
@@ -48,15 +42,7 @@ function formatDate(dateStr: string): string {
 
 type ViewType = "faculty" | "event" | "heats";
 
-type HeatParticipant = {
-  id?: string;
-  name?: string;
-  nameInUse?: string;
-  gender?: "Male" | "Female";
-  faculty?: string;
-  seed?: number;
-  isRelay?: boolean;
-};
+type HeatParticipant = MeetProgramStudent;
 
 const POOL_PHOTO_URL = "/background.png";
 const DRAWER_ICON_PATHS = {
@@ -212,11 +198,11 @@ function PoolHeatTable({
             Lane
           </span>
           <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[#9aabb8]">
-            {isRelayEvent ? "Faculty" : "Student"}
+            {isRelayEvent ? "Team" : "Student"}
           </span>
           {!isRelayEvent ? (
             <span className="text-right text-[10px] font-semibold uppercase tracking-[0.06em] text-[#9aabb8]">
-              Faculty
+              Team
             </span>
           ) : null}
         </div>
@@ -310,7 +296,7 @@ function PublicMeetContent({
   });
 
   const genderPrefix = selectedGender === "Male" ? "M:" : "W:";
-  const filteredEvents = events.filter((e) => e.startsWith(genderPrefix));
+  const filteredEvents = events.filter((e) => e.startsWith(genderPrefix) || !/^[MW]:/.test(e));
 
   const eventResults = useQuery(
     api.results.getResults,
@@ -342,28 +328,11 @@ function PublicMeetContent({
       (registration) => registration.student,
     );
 
-    if (isSelectedRelayEvent) {
-      const facultyTeams = new Map<string, HeatParticipant>();
-      participants.forEach((student) => {
-        const faculty = student.faculty || "Unknown";
-        if (!facultyTeams.has(faculty)) {
-          facultyTeams.set(faculty, {
-            id: faculty,
-            name: faculty,
-            nameInUse: faculty,
-            faculty,
-            gender: student.gender,
-            seed: student.seed,
-            isRelay: true,
-          });
-        }
-      });
-      participants = Array.from(facultyTeams.values());
-    }
+    if (isSelectedRelayEvent) participants = relayTeams(participants, true);
 
     const genderParticipants = participants.filter(
       (participant) =>
-        !participant.gender || participant.gender === selectedGender,
+        !/^([MW]):/.test(selectedHeatEvent ?? "") || !participant.gender || participant.gender === selectedGender,
     );
 
     if (genderParticipants.length === 0) return [];
@@ -371,7 +340,7 @@ function PublicMeetContent({
     return assignToHeats(
       genderParticipants,
       LANES_PER_HEAT,
-    ) as (HeatParticipant | null)[][];
+    );
   }, [
     isSelectedRelayEvent,
     registrations,
@@ -403,7 +372,7 @@ function PublicMeetContent({
 
   const viewTitle =
     selectedView === "faculty"
-      ? "Faculty Rankings"
+      ? "Team Rankings"
       : selectedView === "event" && selectedEventStanding
         ? selectedEventStanding.replace(/^([MW]):/, "")
         : selectedView === "event"
@@ -514,7 +483,7 @@ function PublicMeetContent({
                   <EmptyPoolState>No data yet</EmptyPoolState>
                 ) : (
                   <>
-                    <PoolColumnHeads secondLabel="Faculty" />
+                    <PoolColumnHeads secondLabel="Team" />
                     {leaderboard.facultyLeaderboard.map((faculty, index) => (
                       <PoolRow
                         key={faculty.name}
@@ -538,9 +507,9 @@ function PublicMeetContent({
                         <PoolRow
                           key={result._id}
                           rank={result.rank ?? 0}
-                          primary={result.student?.nameInUse || "Unassigned"}
-                          secondary={displayFaculty(result.student?.faculty)}
-                          trailing={formatTime(result.timing)}
+                          primary={result.student?.nameInUse || result.teamName || "Unassigned"}
+                          secondary={displayFaculty(result.teamName || result.student?.faculty)}
+                          trailing={formatTime(result.timing, true)}
                         />
                       ))}
                     </>
@@ -617,7 +586,7 @@ function PublicMeetContent({
                       alt=""
                       className="mr-2 size-5 rounded-sm"
                     />
-                    Faculty
+                    Team
                   </TabsTrigger>
                   <TabsTrigger value="event" className="flex-1">
                     <PngIcon
@@ -733,26 +702,7 @@ function PublicMeetContent({
                   />
                 </a>
               </Button>
-              {/*<Button
-                variant="outline"
-                size="icon"
-                asChild
-                className="h-12 w-12"
-              >
-                <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
-                  <Facebook className="h-5 w-5" />
-                </a>
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                asChild
-                className="h-12 w-12"
-              >
-                <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" aria-label="YouTube">
-                  <Youtube className="h-5 w-5" />
-                </a>
-              </Button>*/}
+
             </div>
           </div>
         </DrawerContent>

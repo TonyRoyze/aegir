@@ -2,8 +2,10 @@
 
 export const dynamic = "force-dynamic";
 
-import React, { useState, useEffect, useMemo } from "react";
+import { downloadPdf } from "@/lib/pdf/download";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "convex/react";
+import { preferredMeetId } from "@/lib/meet-selection";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
@@ -38,12 +40,11 @@ import {
   Download,
   WandSparkles,
 } from "lucide-react";
-import { MeetProgram } from "@/components/print/meet-program";
+import { MeetProgramPdfPreview } from "@/components/meet-program-pdf-preview";
 import {
   EventRestSummary,
   optimizeEventOrderForRest,
   summarizeEventRest,
-  buildConflictMap,
 } from "@/lib/event-rest-utils";
 import {
   clearProgramEventOrder,
@@ -132,9 +133,7 @@ export default function EventOrderPage() {
   // Set initial selected meet
   useEffect(() => {
     if (meets && meets.length > 0 && !selectedMeetId) {
-      // Prefer active meet or first one
-      const active = meets.find((m) => m.status === "active") || meets[0];
-      setSelectedMeetId(active._id);
+      setSelectedMeetId(preferredMeetId(meets) ?? "");
     }
   }, [meets, selectedMeetId]);
 
@@ -186,38 +185,25 @@ export default function EventOrderPage() {
     [restSummaries],
   );
 
-  const conflictMap = useMemo(
-    () => buildConflictMap(registrations || [], orderedEvents),
-    [orderedEvents, registrations],
-  );
-
   const totalAdjacentConflicts = useMemo(
     () =>
       restSummaries.reduce((sum, summary) => sum + summary.sharedWithNext, 0),
     [restSummaries],
   );
 
-  const hasAutoSortImprovement = useMemo(() => {
-    if (!registrations || orderedEvents.length <= 1) {
-      return false;
-    }
-
-    const suggestedOrder = optimizeEventOrderForRest(
-      registrations,
-      orderedEvents,
-    );
-    return suggestedOrder.join("|") !== orderedEvents.join("|");
-  }, [orderedEvents, registrations]);
+  const suggestedOrder = useMemo(
+    () => registrations && orderedEvents.length > 1
+      ? optimizeEventOrderForRest(registrations, orderedEvents) : orderedEvents,
+    [orderedEvents, registrations],
+  );
+  const hasAutoSortImprovement = suggestedOrder.join("|") !== orderedEvents.join("|");
 
   const handleAutoSort = async () => {
     if (!selectedMeetId || !registrations) {
       return;
     }
 
-    const optimizedOrder = optimizeEventOrderForRest(
-      registrations,
-      orderedEvents,
-    );
+    const optimizedOrder = suggestedOrder;
     if (optimizedOrder.join("|") === orderedEvents.join("|")) {
       return;
     }
@@ -232,38 +218,16 @@ export default function EventOrderPage() {
     if (!selectedMeet) return;
     setDownloading(true);
     try {
-      const response = await fetch("/api/meet-program-pdf", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          meet: {
-            name: selectedMeet.name,
-            events: selectedMeet.events,
-          },
-          registrations: registrations || [],
-          orderedEvents,
-        }),
+      const { generateMeetProgramPdf } = await import("@/lib/pdf/meet-program");
+      const bytes = await generateMeetProgramPdf({
+        meet: { name: selectedMeet.name, events: selectedMeet.events },
+        registrations: registrations || [],
+        orderedEvents,
       });
-
-      if (!response.ok) {
-        throw new Error(`PDF request failed with status ${response.status}`);
-      }
-
-      const blob = await response.blob();
-
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `${selectedMeet.name} - Start List.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      downloadPdf(bytes, `${selectedMeet.name} - Start List.pdf`);
     } catch (error) {
       console.error("PDF generation failed:", error);
-      alert("Failed to generate PDF. Please try again.");
+      alert(error instanceof Error ? error.message : "Failed to generate PDF. Please try again.");
     } finally {
       setDownloading(false);
     }
@@ -279,13 +243,11 @@ export default function EventOrderPage() {
   return (
     <div className="flex h-screen bg-background font-sans text-neutral-900">
       {/* Left Main Content - Preview Area */}
-      <div className="flex-1 overflow-auto bg-slate-100 p-8 hidden xl:block print:block print:p-0 print:bg-white custom-scrollbar">
-        <MeetProgram
-          meet={selectedMeet || { name: "Meet Name", events: [] }}
+      <div className="flex-1 overflow-auto bg-slate-100 p-8 hidden xl:block">
+        <MeetProgramPdfPreview
+          meet={selectedMeet || null}
           registrations={registrations || []}
           orderedEvents={orderedEvents}
-          restSummaryByEvent={restSummaryByEvent}
-          conflictMap={conflictMap}
         />
       </div>
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
+import { preferredMeetId } from "@/lib/meet-selection";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { Loader2 } from "lucide-react";
@@ -32,6 +33,7 @@ export default function TimingPage() {
     selectedMeetId ? { meetId: selectedMeetId as Id<"meets"> } : "skip",
   );
   const saveResult = useMutation(api.results.saveResult);
+  const clearResult = useMutation(api.results.clearResult);
 
   const [savingId, setSavingId] = useState<string | null>(null);
   const orderedEvents = selectedMeet
@@ -40,8 +42,7 @@ export default function TimingPage() {
 
   useEffect(() => {
     if (meets && meets.length > 0 && !selectedMeetId) {
-      const active = meets.find((m) => m.status === "active");
-      setSelectedMeetId(active?._id || meets[0]._id);
+      setSelectedMeetId(preferredMeetId(meets) ?? "");
     }
   }, [meets, selectedMeetId]);
 
@@ -65,6 +66,14 @@ export default function TimingPage() {
     }
   };
 
+  const handleClear = async (eventName: string, studentId: string) => {
+    await clearResult({
+      meetId: selectedMeetId as Id<"meets">,
+      studentId,
+      event: eventName,
+    });
+  };
+
   if (!meets)
     return (
       <div className="p-20 text-center">
@@ -75,13 +84,14 @@ export default function TimingPage() {
   return (
     <div className="flex h-screen bg-background font-sans text-neutral-900">
       {/* Left Main Content - Preview Area */}
-      <div className="flex-1 overflow-auto bg-slate-100 p-8 hidden xl:block custom-scrollbar">
+      <div className="flex-1 overflow-auto bg-slate-100 p-8 hidden xl:block">
         <HeatTables
           meet={selectedMeet || { name: "Meet Name", events: [] }}
           registrations={registrations || []}
           orderedEvents={orderedEvents}
           allResults={allResults || []}
           onSave={handleSave}
+          onClear={handleClear}
           savingId={savingId}
         />
       </div>

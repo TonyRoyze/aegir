@@ -28,8 +28,8 @@ export default function LoginPage() {
     try {
       const response = await loginMutation({ username, password });
       login(response.token);
-    } catch (err: any) {
-      setError(err?.message || "Invalid credentials");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Invalid credentials");
       setLoading(false);
     }
   };

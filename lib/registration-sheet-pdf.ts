@@ -1,5 +1,3 @@
-export const REGISTRATION_SHEET_STORAGE_KEY = "aegir-registration-sheet-document";
-
 export interface RegistrationSheetMeet {
   name: string;
   events: string[];
@@ -28,19 +26,5 @@ export interface RegistrationSheetDocumentData {
   filters: {
     gender: "Male" | "Female";
     faculty: string;
-  };
-}
-
-export function createDefaultRegistrationSheetDocument(): RegistrationSheetDocumentData {
-  return {
-    meet: {
-      name: "Meet Name",
-      events: [],
-    },
-    registrations: [],
-    filters: {
-      gender: "Male",
-      faculty: "",
-    },
   };
 }

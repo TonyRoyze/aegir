@@ -3,12 +3,13 @@
 import { useMemo } from "react";
 import { displayFaculty } from "@/lib/swimming-utils";
 
-interface LeaderboardEntry {
-  name: string;
-  points: number;
-}
+import type { MeetResult } from "@/lib/result-types";
 
-export function FacultyLeaderboard({ allResults }: { allResults: any[] }) {
+export function FacultyLeaderboard({
+  allResults,
+}: {
+  allResults: MeetResult[];
+}) {
   const leaderBoard = useMemo(() => {
     if (!allResults) return [];
 
@@ -16,9 +17,11 @@ export function FacultyLeaderboard({ allResults }: { allResults: any[] }) {
 
     allResults.forEach((res) => {
       const isRelay = res.event.toLowerCase().includes("relay");
-      let faculty = "No Faculty";
+      let faculty = "No Team";
 
-      if (res.student?.faculty) {
+      if (res.teamName) {
+        faculty = res.teamName;
+      } else if (res.student?.faculty) {
         faculty = displayFaculty(res.student.faculty);
       } else if (isRelay) {
         // For relays, studentId stores the faculty name

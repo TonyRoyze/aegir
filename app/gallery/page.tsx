@@ -6,6 +6,7 @@ import { Facebook, ImageIcon, Plus, Loader2, CalendarIcon, Delete, Edit } from "
 import Link from "next/link"
 import { useQuery, useMutation, useAction } from "convex/react"
 import { api } from "@/convex/_generated/api"
+import Image from "next/image"
 import { useState, useEffect } from "react"
 import {
   Dialog,
@@ -23,7 +24,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
-import { Id } from "@/convex/_generated/dataModel"
 
 const COVER_COLORS = [
   "bg-blue-100 dark:bg-blue-900/20",
@@ -46,7 +46,7 @@ interface AlbumDialogProps {
   mode?: "create" | "edit";
   initialData?: AlbumData;
   trigger?: React.ReactNode;
-  onSubmit: (data: AlbumData) => Promise<any>;
+  onSubmit: (data: AlbumData) => Promise<unknown>;
 }
 
 const AlbumDialog = ({ mode = "create", initialData, trigger, onSubmit }: AlbumDialogProps) => {
@@ -228,7 +228,7 @@ export default function GalleryPage() {
         <div className="text-center p-12 border rounded-lg border-dashed text-muted-foreground bg-muted/50">
           <ImageIcon className="mx-auto h-10 w-10 mb-3 opacity-50" />
           <h3 className="text-lg font-medium">No albums yet</h3>
-          <p>Click "Add Album" to start building your gallery.</p>
+          <p>Click &quot;Add Album&quot; to start building your gallery.</p>
         </div>
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -238,7 +238,7 @@ export default function GalleryPage() {
               <Card key={album._id} className="overflow-hidden flex flex-col hover:shadow-lg transition-shadow group pt-0">
                 <div className={`h-48 w-full ${coverColor} flex items-center justify-center transition-colors group-hover:opacity-90 relative`}>
                   {album.coverImage ? (
-                    <img src={album.coverImage} alt={album.title} className="w-full h-full object-cover" />
+                    <Image src={album.coverImage} alt={album.title} fill unoptimized className="object-cover" />
                   ) : (
                     <ImageIcon className="h-12 w-12 text-muted-foreground/30" />
                   )}

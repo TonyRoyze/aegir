@@ -15,7 +15,7 @@ type DraftUser = {
   tempId: string;
   name: string;
   username: string;
-  password: "";
+  password: string;
   role: "admin" | "super_admin";
   loading?: boolean;
 }
@@ -76,8 +76,8 @@ export default function UsersPage() {
         },
       });
       removeDraftRow(draft.tempId);
-    } catch (err: any) {
-      setError(err?.message || "Failed to create user");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create user");
       updateDraftRow(draft.tempId, "loading", false);
     }
   };
@@ -170,7 +170,7 @@ export default function UsersPage() {
               )}
 
               {/* Draft Rows */}
-              {draftUsers.map((draft, idx) => (
+              {draftUsers.map((draft) => (
                 <TableRow key={draft.tempId} className="hover:bg-transparent break-inside-avoid">
                   <TableCell className="p-0 border-r">
                     <Input
@@ -211,7 +211,7 @@ export default function UsersPage() {
                         }
                       }}
                       value={draft.role} 
-                      onValueChange={(val: any) => updateDraftRow(draft.tempId, "role", val)}
+                      onValueChange={(val) => { if (val === "admin" || val === "super_admin") updateDraftRow(draft.tempId, "role", val); }}
                     >
                       <SelectTrigger 
                         onFocus={() => {

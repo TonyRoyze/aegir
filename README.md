@@ -1,65 +1,57 @@
-# Aegir - Swimming Meet Management System
+# Aegir
 
-[![Next.js](https://img.shields.io/badge/Next.js-000000?style=flat&logo=next.js&logoColor=white)](https://nextjs.org)
-[![React](https://img.shields.io/badge/react-%2320232a.svg?style=flat&logo=react&logoColor=%2361DAFB)](https://react.dev)
-[![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
-[![Tailwind CSS](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=flat&logo=tailwind-css&logoColor=white)](https://tailwindcss.com)
-[![Convex](https://img.shields.io/badge/Convex-3ECF8E?style=flat&logo=convex&logoColor=white)](https://convex.dev)
-[![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![GitHub](https://img.shields.io/badge/github-%23121011.svg?style=flat&logo=github&logoColor=white)](https://github.com/TonyRoyze/aegir)
+Swimming meet management built with Next.js 16.0.7, React, TypeScript and Convex. The app manages meet teams/events, registrations, results, standings, galleries and competition documents.
 
-Aegir is a high-performance, real-time platform designed for organizing swimming meets, managing student registrations, and generating official competition documents.
+## Development
 
-## 🚀 Features
+Install dependencies with the project's lockfile:
 
-- **🏆 Meet Management**: Create, edit, and archive swimming meets. Each meet can have its own unique set of events and dates.
-- **📝 Real-time Registration**: A spreadsheet-style interface for rapid student registration. Data is synchronized in real-time across all devices using **Convex**.
-- **📋 Smart Validation**: Ensures registrations follow meet rules (e.g., limiting the number of events per student).
-- **🔄 Event Reordering**: An intuitive drag-and-drop interface using `dnd-kit` to perfectly sequence your meet's program.
-- **📄 High-Fidelity PDF Generation**: Automated generation of official documents via a headless browser (**Puppeteer**) for perfect A4 printing:
-    - **Registration Sheets**: Auto-populated and filtered by Gender and Faculty.
-    - **Meet Programs**: Showing the official sequence of events and participants.
-- **📱 Mobile Ready**: Dedicated mobile-optimized views for poolside registration and data entry.
-- **🎨 Modern UI**: Built with a sleek, premium design using Tailwind CSS, Radix UI primitives, and Lucide icons.
-
-## 🛠 Tech Stack
-
-- **Framework**: [Next.js 15](https://nextjs.org/) (App Router)
-- **Backend / Database**: [Convex](https://www.convex.dev/) (Real-time syncing)
-- **PDF Engine**: [Puppeteer](https://pptr.dev/) (Headless browser rendering)
-- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
-- **Components**: [Radix UI](https://www.radix-ui.com/) & [Shadcn UI](https://ui.shadcn.com/)
-- **Forms**: [React Hook Form](https://react-hook-form.com/) & [Zod](https://zod.dev/)
-- **Drag & Drop**: [@dnd-kit](https://dnd-kit.com/)
-
-## 📖 Documentation
-
-- [PDF Generation Blueprint](./BLUEPRINT_PDF_GENERATION.md) - Deep dive into the architectural pattern for PDF generation.
-- [PDF Usage Instructions](./PDF_INSTRUCTIONS.md) - How to use and extend the PDF system.
-
-## 🚦 Getting Started
-
-### 1. Install Dependencies
 ```bash
-npm install
+pnpm install --frozen-lockfile
 ```
 
-### 2. Configure Environment Variables
-Create a `.env.local` file with your Convex and App URL details:
+Configure `.env.local` for your development Convex deployment:
+
 ```env
-NEXT_PUBLIC_CONVEX_URL=your_convex_url_here
-CONVEX_DEPLOYMENT=your_deployment_name_here
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_CONVEX_URL=your_convex_url
+CONVEX_DEPLOYMENT=your_deployment_name
 ```
 
-### 3. Run Development Server
+Run Next.js and Convex in separate terminals:
+
 ```bash
-npm run dev
-# or
-npx convex dev
+pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to see the application.
+```bash
+pnpm exec convex dev
+```
 
-## 📄 License
-MIT
+Open [localhost:3000](http://localhost:3000). The Next.js process serves the interface; the Convex process develops the backend. Use a development deployment for testing. Public meet links use the current browser origin.
+
+## PDFs
+
+Registration sheets and meet programs are generated in the browser with `pdf-lib` and `@pdf-lib/fontkit`. No headless browser or PDF API route is required. Documents include pagination, repeated headings and bundled fonts; see [font support and licenses](public/fonts/README.md). Node tests check document generation and layout; browser rendering of Indic scripts still requires visual verification.
+
+## Checks
+
+```bash
+pnpm typecheck
+pnpm lint
+pnpm test:domain
+pnpm test:pdf
+pnpm test:config
+pnpm build
+```
+
+`test:config` runs isolated Convex tests without mutating a deployment. Backend API changes also require Convex code generation before release.
+
+## Maintenance references
+
+- [Cleanup plan and execution tracker](CODE_CLEANUP_PLAN.md)
+- [Shared event order and registration synchronization plan](REALTIME_SYNC_PLAN.md)
+- [Meet configuration migration](docs/meet-configuration-migration.md)
+
+Registration subscriptions update clean forms. Autosave checks its loaded snapshot before replacing meet registrations, so concurrent stale edits are rejected and kept locally for explicit recovery. Older callers omitting this check retain the legacy API behavior; incremental row mutations remain future work in the sync plan. Event order currently persists locally in each browser.
+
+`internal.debug.fixUser` is a trusted tooling recovery function. It is no longer a public mutation; existing deployments need a backend release for this change to take effect. `internal.cleanup.clearAll` is a destructive maintenance utility that deletes registrations in batches of 100. It is never called by the UI or automatically during deployment. Do not run it as a verification step.

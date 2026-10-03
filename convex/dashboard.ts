@@ -1,279 +1,77 @@
 import { query } from "./_generated/server";
 import { v } from "convex/values";
+import { projectResults } from "./resultHelpers";
+import { meetRegistrations } from "./meetConfiguration";
 
-export const getPublicLeaderboard = query({
-  args: {
-    meetId: v.id("meets"),
-  },
-  handler: async (ctx, args) => {
-    const meet = await ctx.db.get(args.meetId);
-    if (!meet) {
-      return {
-        meetName: "",
-        meetDate: "",
-        facultyLeaderboard: [],
-        studentLeaderboard: []
+function leaders(results: Awaited<ReturnType<typeof projectResults>>) {
+  const teams = new Map<string, number>();
+  const male = new Map<string, number>();
+  const female = new Map<string, number>();
+  const swimmers = new Map<
+    string,
+    { id: string; name: string; faculty: string; score: number }
+  >();
+  for (const result of results) {
+    if (!result.points || result.points <= 0) continue;
+    const team = result.teamName || "Unknown";
+    teams.set(team, (teams.get(team) ?? 0) + result.points);
+    const gender = result.event.startsWith("M:")
+      ? "Male"
+      : result.event.startsWith("W:")
+        ? "Female"
+        : result.student?.gender;
+    const group =
+      gender === "Male" ? male : gender === "Female" ? female : null;
+    if (group) group.set(team, (group.get(team) ?? 0) + result.points);
+    if (result.student && !result.event.toLowerCase().includes("relay")) {
+      const id = result.student.externalId;
+      const swimmer = swimmers.get(id) ?? {
+        id,
+        name: result.student.name,
+        faculty: team,
+        score: 0,
       };
+      swimmer.score += result.points;
+      swimmers.set(id, swimmer);
     }
-
-    const registrations = await ctx.db
-      .query("registrations")
-      .withIndex("by_meetId", (q) => q.eq("meetId", args.meetId))
-      .collect();
-
-    const results = await ctx.db
-      .query("results")
-      .withIndex("by_meet_event", (q) => q.eq("meetId", args.meetId))
-      .collect();
-
-    const convexStudentIds = [...new Set(registrations.map(r => r.studentId))];
-    const initialStudents = await Promise.all(convexStudentIds.map(id => ctx.db.get(id)));
-    
-    const studentMap = new Map();
-    const studentsByExternalId = new Map();
-
-    initialStudents.forEach(s => {
-      if (s) {
-        studentMap.set(s._id, s);
-        studentsByExternalId.set(s.externalId, s);
-      }
-    });
-
-    const externalIdsInResults = [...new Set(results.map(r => r.studentId))];
-    const missingExternalIds = externalIdsInResults.filter(id => !studentsByExternalId.has(id));
-
-    if (missingExternalIds.length > 0) {
-      const additionalStudents = await Promise.all(
-        missingExternalIds.map(async (extId) =>
-          ctx.db
-            .query("students")
-            .withIndex("by_externalId", (q) => q.eq("externalId", extId))
-            .unique()
-        )
-      );
-
-      additionalStudents.forEach(s => {
-        if (s) {
-          studentMap.set(s._id, s);
-          studentsByExternalId.set(s.externalId, s);
-        }
-      });
-    }
-
-    const facultyStats = new Map<string, number>();
-    const studentStats = new Map<string, { id: string, name: string, faculty: string, score: number }>();
-
-    results.forEach(res => {
-      if (!res.points || res.points <= 0) return;
-
-      const isRelay = res.event.toLowerCase().includes("relay");
-      const student = studentsByExternalId.get(res.studentId);
-      
-      let faculty = "Unknown";
-      if (student) {
-        faculty = student.faculty || "Unknown";
-      } else if (isRelay) {
-        faculty = res.studentId;
-      } else {
-        return;
-      }
-
-      facultyStats.set(faculty, (facultyStats.get(faculty) || 0) + res.points);
-
-      if (student && !isRelay) {
-        if (!studentStats.has(student._id)) {
-          studentStats.set(student._id, {
-            id: student._id,
-            name: student.name,
-            faculty: faculty,
-            score: 0
-          });
-        }
-        studentStats.get(student._id)!.score += res.points;
-      }
-    });
-
-    const facultyLeaderboard = Array.from(facultyStats.entries())
+  }
+  const sorted = (map: Map<string, number>) =>
+    [...map]
       .map(([name, score]) => ({ name, score }))
       .sort((a, b) => b.score - a.score);
-
-    const studentLeaderboard = Array.from(studentStats.values())
+  return {
+    facultyLeaderboard: sorted(teams),
+    facultyLeaderboardMale: sorted(male),
+    facultyLeaderboardFemale: sorted(female),
+    studentLeaderboard: [...swimmers.values()]
       .sort((a, b) => b.score - a.score)
-      .slice(0, 10);
-
+      .slice(0, 10),
+  };
+}
+export const getPublicLeaderboard = query({
+  args: { meetId: v.id("meets") },
+  handler: async (ctx, args) => {
+    const meet = await ctx.db.get(args.meetId);
     return {
-      meetName: meet.name,
-      meetDate: meet.date,
-      facultyLeaderboard,
-      studentLeaderboard
+      meetName: meet?.name ?? "",
+      meetDate: meet?.date ?? "",
+      ...leaders(meet ? await projectResults(ctx, args.meetId) : []),
     };
   },
 });
-
 export const getStats = query({
-  args: {
-    meetId: v.id("meets"),
-  },
+  args: { meetId: v.id("meets") },
   handler: async (ctx, args) => {
-    // 1. Get the Active Meet
-    let meets;
-    if (args.meetId) {
-      meets = await ctx.db
-        .query("meets")
-        .withIndex("by_id", (q) => q.eq("_id", args.meetId))
-        .collect();
-    } else {
-      meets = await ctx.db.query("meets").collect();
-    }
-
-    if (!meets) {
-      return {
-        totalParticipants: 0,
-        totalEntries: 0,
-        facultyLeaderboard: [],
-        facultyLeaderboardMale: [],
-        facultyLeaderboardFemale: [],
-        studentLeaderboard: []
-      };
-    }
-
-    // 2. Get Registrations (for counts)
-    const registrations = await ctx.db
-      .query("registrations")
-      .withIndex("by_meetId", (q) => q.eq("meetId", meets[0]._id))
-      .collect();
-
-    // 3. Get Results (for points)
-    // We can't query by meetId directly as it's part of a composite key "by_meet_event" or "by_meet_student"
-    // Wait, by_meet_event starts with meetId, so we can use it!
-    // But we need a range query or just filter in memory if we can't do broad range.
-    // Actually, simple .collect() on the index with just the first part of key works effectively as "starts with".
-    // convex query syntax: .withIndex("by_meet_event", q => q.eq("meetId", id))
-    const results = await ctx.db
-      .query("results")
-      .withIndex("by_meet_event", (q) => q.eq("meetId", meets[0]._id))
-      .collect();
-
-    // 4. Get Student details
-    // registrations stores studentId as a Convex ID
-    const convexStudentIds = [...new Set(registrations.map(r => r.studentId))];
-    const initialStudents = await Promise.all(convexStudentIds.map(id => ctx.db.get(id)));
-    
-    const studentMap = new Map();
-    const studentsByExternalId = new Map(); // map externalId -> student record
-
-    initialStudents.forEach(s => {
-      if (s) {
-        studentMap.set(s._id, s);
-        studentsByExternalId.set(s.externalId, s);
-      }
-    });
-
-    // results stores studentId as an External ID (string)
-    // Check if any results have students not in our map
-    const externalIdsInResults = [...new Set(results.map(r => r.studentId))];
-    const missingExternalIds = externalIdsInResults.filter(id => !studentsByExternalId.has(id));
-
-    if (missingExternalIds.length > 0) {
-      const additionalStudents = await Promise.all(
-        missingExternalIds.map(async (extId) =>
-          ctx.db
-            .query("students")
-            .withIndex("by_externalId", (q) => q.eq("externalId", extId))
-            .unique()
-        )
-      );
-
-      additionalStudents.forEach(s => {
-        if (s) {
-          studentMap.set(s._id, s);
-          studentsByExternalId.set(s.externalId, s);
-        }
-      });
-    }
-
-    // 5. Aggregate Stats
-    const facultyStats = new Map<string, number>();
-    const facultyStatsMale = new Map<string, number>();
-    const facultyStatsFemale = new Map<string, number>();
-    const studentStats = new Map<string, { id: string, name: string, faculty: string, score: number }>();
-
-    let totalEntries = 0;
-
-    // Calc total entries from registrations
-    registrations.forEach(r => totalEntries += r.events.length);
-
-    // Calc Points from Results
-    results.forEach(res => {
-      if (!res.points || res.points <= 0) return;
-
-      const isRelay = res.event.toLowerCase().includes("relay");
-      const student = studentsByExternalId.get(res.studentId);
-      const gender = res.event.startsWith("M:") ? "male"
-        : res.event.startsWith("W:") ? "female"
-        : student?.gender === "Male" ? "male"
-        : student?.gender === "Female" ? "female"
-        : null;
-      
-      let faculty = "Unknown";
-      if (student) {
-        faculty = student.faculty || "Unknown";
-      } else if (isRelay) {
-        // For relays, studentId stores the faculty name
-        faculty = res.studentId;
-      } else {
-        // Skip results that can't be attributed to a student or faculty
-        return;
-      }
-
-      // Faculty Score (overall)
-      facultyStats.set(faculty, (facultyStats.get(faculty) || 0) + res.points);
-
-      // Faculty Score (by gender)
-      if (gender === "male") {
-        facultyStatsMale.set(faculty, (facultyStatsMale.get(faculty) || 0) + res.points);
-      } else if (gender === "female") {
-        facultyStatsFemale.set(faculty, (facultyStatsFemale.get(faculty) || 0) + res.points);
-      }
-
-      // Student Score (Only for individual events)
-      if (student && !isRelay) {
-        if (!studentStats.has(student._id)) {
-          studentStats.set(student._id, {
-            id: student._id,
-            name: student.name,
-            faculty: faculty,
-            score: 0
-          });
-        }
-        studentStats.get(student._id)!.score += res.points;
-      }
-    });
-
-    // Sort Leaders
-    const facultyLeaderboard = Array.from(facultyStats.entries())
-      .map(([name, score]) => ({ name, score }))
-      .sort((a, b) => b.score - a.score);
-
-    const facultyLeaderboardMale = Array.from(facultyStatsMale.entries())
-      .map(([name, score]) => ({ name, score }))
-      .sort((a, b) => b.score - a.score);
-
-    const facultyLeaderboardFemale = Array.from(facultyStatsFemale.entries())
-      .map(([name, score]) => ({ name, score }))
-      .sort((a, b) => b.score - a.score);
-
-    const studentLeaderboard = Array.from(studentStats.values())
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 10); // Top 10
-
+    const meet = await ctx.db.get(args.meetId);
+    if (!meet) return { totalParticipants: 0, totalEntries: 0, ...leaders([]) };
+    const regs = await meetRegistrations(ctx, args.meetId);
     return {
-      totalParticipants: studentMap.size,
-      totalEntries,
-      facultyLeaderboard,
-      facultyLeaderboardMale,
-      facultyLeaderboardFemale,
-      studentLeaderboard
+      totalParticipants: new Set(regs.map((r) => r.studentId)).size,
+      totalEntries: regs.reduce(
+        (sum, r) => sum + (r.meetEventIds ?? r.events).length,
+        0,
+      ),
+      ...leaders(await projectResults(ctx, args.meetId)),
     };
   },
 });

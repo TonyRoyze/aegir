@@ -1,8 +1,9 @@
-import { mutation } from "./_generated/server";
+// Operational password recovery: callable only through trusted backend tooling.
+import { internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import * as bcrypt from "bcryptjs";
 
-export const fixUser = mutation({
+export const fixUser = internalMutation({
   args: { username: v.string(), newPassword: v.string() },
   handler: async (ctx, args) => {
     const user = await ctx.db
