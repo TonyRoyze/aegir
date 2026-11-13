@@ -21,6 +21,14 @@ import {
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   Card,
   CardContent,
   CardHeader,
@@ -54,6 +62,7 @@ import {
   Pencil,
   Trash2,
   Link,
+  Unlink,
   Copy,
   Check,
 } from "lucide-react";
@@ -75,6 +84,7 @@ export default function MeetsPage() {
   const generatePublicToken = useMutation(api.meets.generatePublicToken);
 
   const [isCreating, setIsCreating] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
   const [newMeetName, setNewMeetName] = useState("");
   const [newMeetDate, setNewMeetDate] = useState<Date | undefined>(new Date());
   const [selectedEvents, setSelectedEvents] = useState<EventInput[]>([]);
@@ -142,6 +152,7 @@ export default function MeetsPage() {
       setNewEventPointSystems({});
       setSelectedEvents([]);
       setNewTeams([]);
+      setShowCreateForm(false);
     } catch (error) {
       setFormError(
         error instanceof Error ? error.message : "Could not create meet.",
@@ -252,11 +263,32 @@ export default function MeetsPage() {
 
   return (
     <div className="space-y-8 p-6 md:p-8 animate-in fade-in duration-500">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Meets</h1>
-        <p className="text-muted-foreground">
-          Manage swimming meets and their events.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">
+            {showCreateForm ? "Create a Meet" : "Meets"}
+          </h1>
+          <p className="text-muted-foreground">
+            {showCreateForm
+              ? "Set up the meet, teams, events, and points."
+              : "Manage swimming meets and their events."}
+          </p>
+        </div>
+        {showCreateForm ? (
+          <Button variant="outline" onClick={() => setShowCreateForm(false)}>
+            Cancel
+          </Button>
+        ) : (
+          <Button
+            onClick={() => {
+              setFormError("");
+              setShowCreateForm(true);
+            }}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add New Meet
+          </Button>
+        )}
       </div>
 
       {formError && (
@@ -264,16 +296,25 @@ export default function MeetsPage() {
           {formError}
         </p>
       )}
-      <div className="grid gap-8 lg:grid-cols-2">
+      <div
+        className={cn(
+          "grid gap-8",
+          showCreateForm
+            ? "grid-cols-1"
+            : "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3",
+        )}
+      >
         {/* Create New Meet */}
-        <Card>
+        {showCreateForm && (
+          <Card className="mx-auto w-full max-w-7xl">
           <CardHeader>
             <CardTitle>Create New Meet</CardTitle>
             <CardDescription>
               Set up a new meet with specific events.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
+            <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label>Meet Name</Label>
               <Input
@@ -310,6 +351,7 @@ export default function MeetsPage() {
                 </PopoverContent>
               </Popover>
             </div>
+            </div>
             <MeetConfigurationFields
               teams={newTeams}
               events={selectedEvents}
@@ -319,38 +361,6 @@ export default function MeetsPage() {
               eventPointSystems={newEventPointSystems}
               onPointsChange={setNewEventPointSystems}
             />
-
-            <div className="space-y-4 pt-2 border-t border-dashed">
-              <div>
-                <Label className="text-xs uppercase tracking-widest font-black opacity-40">
-                  Point System Configuration
-                </Label>
-                <div className="grid grid-cols-4 gap-2 mt-3">
-                  {newPointSystem.map((points, idx) => (
-                    <div key={idx} className="space-y-1">
-                      <Label
-                        htmlFor={`points-${idx}`}
-                        className="text-[10px] uppercase font-bold text-neutral-400"
-                      >
-                        Rank {idx + 1}
-                      </Label>
-                      <Input
-                        id={`points-${idx}`}
-                        type="number"
-                        className="h-8 text-xs font-medium p-2"
-                        value={points}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value) || 0;
-                          const next = [...newPointSystem];
-                          next[idx] = val;
-                          setNewPointSystem(next);
-                        }}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
 
             <Button
               onClick={handleCreate}
@@ -365,100 +375,131 @@ export default function MeetsPage() {
               Create Meet
             </Button>
           </CardContent>
-        </Card>
+          </Card>
+        )}
 
         {/* List of Meets */}
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Active Meets</h2>
-          {meets === undefined ? (
-            <div className="flex justify-center p-8">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : meets.length === 0 ? (
-            <div className="text-center p-8 border rounded-lg border-dashed text-muted-foreground">
-              No meets created yet.
-            </div>
-          ) : (
-            meets.map((meet) => (
-              <Card
-                key={meet._id}
-                className={cn(meet.status === "archived" && "opacity-60")}
-              >
-                <CardHeader className="pb-2">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <CardTitle className="text-lg">{meet.name}</CardTitle>
-                      <CardDescription className="flex items-center mt-1">
-                        <CalendarIcon className="mr-1 h-3 w-3" />
-                        {new Date(meet.date).toLocaleDateString()}
-                      </CardDescription>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={cn(
-                          "text-xs font-medium px-2 py-1 rounded-full capitalize",
-                          meet.status === "active"
-                            ? "bg-green-100 text-green-700"
-                            : "bg-gray-100 text-gray-700",
-                        )}
-                      >
-                        {meet.status}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openPublicLinkDialog(meet)}
-                        title="Public Link"
-                      >
-                        <Link className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openEditDialog(meet)}
-                        title="Edit Meet"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() =>
-                          handleStatusChange(meet._id, meet.status!)
-                        }
-                        title={
-                          meet.status === "active"
-                            ? "Archive Meet"
-                            : "Activate Meet"
-                        }
-                      >
-                        {meet.status === "active" ? (
-                          <Archive className="h-4 w-4" />
-                        ) : (
-                          <RefreshCcw className="h-4 w-4" />
-                        )}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openDeleteDialog(meet)}
-                        title="Delete Meet"
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-sm text-muted-foreground">
-                    {meet.events.length} events configured
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </div>
+        {!showCreateForm && (
+          <div className="col-span-full space-y-4">
+            <h2 className="text-xl font-semibold">All Meets</h2>
+            {meets === undefined ? (
+              <div className="flex justify-center p-8">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : meets.length === 0 ? (
+              <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
+                No meets created yet.
+              </div>
+            ) : (
+              <Table className="min-w-190">
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="border-r">Meet</TableHead>
+                    <TableHead className="w-40 border-r">Date</TableHead>
+                    <TableHead className="w-40 border-r">Events</TableHead>
+                    <TableHead className="w-36 border-r">Status</TableHead>
+                    <TableHead className="w-52 text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {meets.map((meet) => (
+                    <TableRow
+                      key={meet._id}
+                      className={cn(
+                        "hover:bg-muted/30",
+                        meet.status === "archived" && "text-muted-foreground",
+                      )}
+                    >
+                      <TableCell className="border-r font-medium">
+                        {meet.name}
+                      </TableCell>
+                      <TableCell className="border-r">
+                        <span className="flex items-center gap-2">
+                          <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                          {new Date(meet.date).toLocaleDateString()}
+                        </span>
+                      </TableCell>
+                      <TableCell className="border-r">
+                        {meet.events.length}
+                      </TableCell>
+                      <TableCell className="border-r">
+                        <span
+                          className={cn(
+                            "inline-flex rounded-full px-2 py-1 text-xs font-medium capitalize",
+                            meet.status === "active"
+                              ? "bg-green-100 text-green-700"
+                              : "bg-gray-100 text-gray-700",
+                          )}
+                        >
+                          {meet.status}
+                        </span>
+                      </TableCell>
+                      <TableCell className="p-0">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openPublicLinkDialog(meet)}
+                            title={
+                              meet.publicToken
+                                ? "Public Link"
+                                : "Generate Public Link"
+                            }
+                            aria-label={`Public link for ${meet.name}`}
+                          >
+                            {meet.publicToken ? (
+                              <Link className="h-4 w-4" />
+                            ) : (
+                              <Unlink className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openEditDialog(meet)}
+                            title="Edit Meet"
+                            aria-label={`Edit ${meet.name}`}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() =>
+                              handleStatusChange(meet._id, meet.status!)
+                            }
+                            title={
+                              meet.status === "active"
+                                ? "Archive Meet"
+                                : "Activate Meet"
+                            }
+                            aria-label={`${meet.status === "active" ? "Archive" : "Activate"} ${meet.name}`}
+                          >
+                            {meet.status === "active" ? (
+                              <Archive className="h-4 w-4" />
+                            ) : (
+                              <RefreshCcw className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openDeleteDialog(meet)}
+                            title="Delete Meet"
+                            aria-label={`Delete ${meet.name}`}
+                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Edit Dialog */}
@@ -517,37 +558,6 @@ export default function MeetsPage() {
               onPointsChange={setEditEventPointSystems}
             />
 
-            <div className="space-y-4 pt-2 border-t border-dashed">
-              <div>
-                <Label className="text-xs uppercase tracking-widest font-black opacity-40">
-                  Point System Configuration
-                </Label>
-                <div className="grid grid-cols-4 gap-2 mt-3">
-                  {editPointSystem.map((points, idx) => (
-                    <div key={idx} className="space-y-1">
-                      <Label
-                        htmlFor={`edit-global-points-${idx}`}
-                        className="text-[10px] uppercase font-bold text-neutral-400"
-                      >
-                        Rank {idx + 1}
-                      </Label>
-                      <Input
-                        id={`edit-global-points-${idx}`}
-                        type="number"
-                        className="h-8 text-xs font-medium p-2"
-                        value={points}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value) || 0;
-                          const next = [...editPointSystem];
-                          next[idx] = val;
-                          setEditPointSystem(next);
-                        }}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
           </div>
           {formError && (
             <p role="alert" className="text-destructive">

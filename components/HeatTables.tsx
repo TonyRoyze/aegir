@@ -69,6 +69,7 @@ function StudentRow({
   onClear,
   savingId,
   laneIndex,
+  readOnly,
 }: {
   student: MeetProgramStudent | null;
   eventName: string;
@@ -78,9 +79,11 @@ function StudentRow({
   onClear: (studentId: string) => Promise<void>;
   savingId: string | null;
   laneIndex: number;
+  readOnly: boolean;
 }) {
   const savedTiming = findStudentResult(allResults, eventName, student)?.timing;
   const identity = `${eventName}:${getResultStudentId(student)}`;
+  const [isEditingUntimed, setIsEditingUntimed] = useState(false);
   const [draft, setDraft] = useState<{
     identity: string;
     baseTiming: number | undefined;
@@ -107,7 +110,10 @@ function StudentRow({
     const p = localInputs;
     const currentRes = findStudentResult(allResults, eventName, student);
     if (p.m === "" && p.s === "" && p.h === "") {
-      if (currentRes) await onClear(studentId);
+      if (currentRes) {
+        await onClear(studentId);
+        setIsEditingUntimed(false);
+      }
       return;
     }
 
@@ -144,18 +150,42 @@ function StudentRow({
           {displayFaculty(student?.faculty) || ""}
         </div>
       )}
-      <div className="w-24 border-r border-black p-1 flex items-center justify-center gap-0.5 bg-slate-50/30 relative">
-        {student ? (
+      <div
+        className="w-24 border-r border-black p-1 flex items-center justify-center gap-0.5 bg-slate-50/30"
+        onBlur={(event) => {
+          if (event.currentTarget.contains(event.relatedTarget as Node)) return;
+          if (
+            !res &&
+            !localInputs.m &&
+            !localInputs.s &&
+            !localInputs.h
+          ) {
+            setIsEditingUntimed(false);
+          }
+        }}
+      >
+        {readOnly ? (
+          <span>
+            {savedTiming
+              ? `${getParts(savedTiming).m}:${getParts(savedTiming).s}.${getParts(savedTiming).h}`
+              : "NT"}
+          </span>
+        ) : student && !res && !isEditingUntimed ? (
+          <button
+            type="button"
+            className="h-7 w-full rounded-sm text-sm font-semibold text-muted-foreground hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            aria-label={`Enter time for ${student.name || "student"}`}
+            onClick={() => setIsEditingUntimed(true)}
+          >
+            NT
+          </button>
+        ) : student ? (
           <>
-            {!res && !localInputs.m && !localInputs.s && !localInputs.h && (
-              <span className="absolute text-xs font-semibold text-muted-foreground pointer-events-none">
-                NT
-              </span>
-            )}
             <Input
               className="w-6 h-5 p-0 text-center md:text-xs font-medium border-none bg-transparent focus-visible:ring-1 outline-none"
               placeholder="0"
               value={localInputs.m}
+              autoFocus={isEditingUntimed && !res}
               onChange={(e) => updateInput("m", e.target.value)}
               onBlur={handleBlur}
             />
@@ -198,9 +228,11 @@ interface HeatTablesProps {
   registrations: MeetProgramRegistration[];
   orderedEvents: string[];
   allResults: MeetResult[];
-  onSave: (eventName: string, studentId: string, ms: number) => Promise<void>;
-  onClear: (eventName: string, studentId: string) => Promise<void>;
-  savingId: string | null;
+  onSave?: (eventName: string, studentId: string, ms: number) => Promise<void>;
+  onClear?: (eventName: string, studentId: string) => Promise<void>;
+  savingId?: string | null;
+  readOnly?: boolean;
+  title?: string;
 }
 
 export function HeatTables({
@@ -210,7 +242,9 @@ export function HeatTables({
   allResults,
   onSave,
   onClear,
-  savingId,
+  savingId = null,
+  readOnly = false,
+  title = "Timings",
 }: HeatTablesProps) {
   const eventsData = useMemo(
     () => buildMeetProgramEvents(registrations, orderedEvents),
@@ -239,7 +273,7 @@ export function HeatTables({
             {meet?.name || "Meet Name"}
           </h1>
           <p className="text-sm font-semibold mt-1 text-neutral-600 uppercase tracking-[0.2em]">
-            Timings
+            {title}
           </p>
         </div>
 
@@ -320,13 +354,16 @@ export function HeatTables({
                                 isRelayEvent={isRelayEvent}
                                 allResults={allResults}
                                 onSave={(studentId, ms) =>
-                                  onSave(event.name, studentId, ms)
+                                  onSave?.(event.name, studentId, ms) ??
+                                  Promise.resolve()
                                 }
                                 onClear={(studentId) =>
-                                  onClear(event.name, studentId)
+                                  onClear?.(event.name, studentId) ??
+                                  Promise.resolve()
                                 }
                                 savingId={savingId}
                                 laneIndex={laneIndex}
+                                readOnly={readOnly}
                               />
                             );
                           },

@@ -38,7 +38,7 @@ import {
   type EventGender,
 } from "@/lib/meet-configuration";
 
-function TextCombobox({
+function StrokeCombobox({
   id,
   label,
   value,
@@ -54,19 +54,25 @@ function TextCombobox({
   return (
     <Field>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      <Input
-        id={id}
-        list={`${id}-options`}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        autoComplete="off"
-        placeholder={`Choose or type ${label.toLowerCase()}`}
-      />
-      <datalist id={`${id}-options`}>
-        {options.map((option) => (
-          <option key={option} value={option} />
-        ))}
-      </datalist>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger id={id}>
+          <SelectValue placeholder={`Choose ${label.toLowerCase()}`} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            {[
+              ...new Set([
+                ...options,
+                ...(value && !options.includes(value) ? [value] : []),
+              ]),
+            ].map((option) => (
+              <SelectItem key={option} value={option}>
+                {option}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
     </Field>
   );
 }
@@ -96,7 +102,7 @@ function RowActions({
         ) : (
           <Pencil data-icon="inline-start" />
         )}
-        {editing ? "Done" : "Edit"}
+        {/*{editing ? "Done" : "Edit"}*/}
       </Button>
       <Button
         type="button"
@@ -137,6 +143,8 @@ export function MeetConfigurationFields({
   const [error, setError] = useState("");
   const [editingTeam, setEditingTeam] = useState<number | null>(null);
   const [editingEvent, setEditingEvent] = useState<number | null>(null);
+  const [pointDrafts, setPointDrafts] = useState<Record<string, string>>({});
+  const [pointErrors, setPointErrors] = useState<Record<string, string>>({});
   const updateTeam = (index: number, patch: Partial<TeamInput>) =>
     onTeamsChange(
       teams.map((team, i) => (i === index ? { ...team, ...patch } : team)),
@@ -197,11 +205,11 @@ export function MeetConfigurationFields({
   return (
     <FieldGroup>
       <FieldSet>
-        <FieldLegend>Teams</FieldLegend>
+        {/*<FieldLegend>Teams</FieldLegend>
         <FieldDescription>
           Team codes belong only to this meet.
-        </FieldDescription>
-        <FieldGroup>
+        </FieldDescription>*/}
+        <FieldGroup className="grid items-end gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
           <Field>
             <FieldLabel htmlFor={`${id}-team`}>Team code</FieldLabel>
             <Input
@@ -237,7 +245,7 @@ export function MeetConfigurationFields({
                       onChange={(e) =>
                         updateTeam(index, { code: e.target.value })
                       }
-                      className="h-10 border-0 bg-transparent shadow-none rounded-none px-3"
+                      className="h-10 border-0 bg-transparent shadow-none rounded-none px-3 focus-visible:ring-0 focus-visible:ring-inset focus-visible:ring-primary"
                     />
                   ) : (
                     <span className="block px-3 py-2">{team.code}</span>
@@ -269,27 +277,25 @@ export function MeetConfigurationFields({
         <FieldDescription>
           Choose distance, stroke and gender separately.
         </FieldDescription>
-        <FieldGroup>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field>
-              <FieldLabel htmlFor={`${id}-distance`}>Distance (m)</FieldLabel>
-              <Input
-                id={`${id}-distance`}
-                type="number"
-                min="0.01"
-                step="any"
-                value={distance}
-                onChange={(e) => setDistance(e.target.value)}
-              />
-            </Field>
-            <TextCombobox
-              id={`${id}-stroke`}
-              label="Stroke"
-              value={stroke}
-              options={STROKES}
-              onChange={setStroke}
+        <FieldGroup className="grid items-end gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <Field>
+            <FieldLabel htmlFor={`${id}-distance`}>Distance (m)</FieldLabel>
+            <Input
+              id={`${id}-distance`}
+              type="number"
+              min="0.01"
+              step="any"
+              value={distance}
+              onChange={(e) => setDistance(e.target.value)}
             />
-          </div>
+          </Field>
+          <StrokeCombobox
+            id={`${id}-stroke`}
+            label="Stroke"
+            value={stroke}
+            options={STROKES}
+            onChange={setStroke}
+          />
           <Field>
             <FieldLabel htmlFor={`${id}-gender`}>Gender</FieldLabel>
             <Select
@@ -330,6 +336,7 @@ export function MeetConfigurationFields({
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead className="border-r">Event</TableHead>
+              <TableHead className="min-w-64 border-r">Points</TableHead>
               <TableHead className="w-32 text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -341,6 +348,89 @@ export function MeetConfigurationFields({
                   <TableRow className="hover:bg-muted/20">
                     <TableCell className="border-r whitespace-normal">
                       {readableEventLabel(event)}
+                    </TableCell>
+                    <TableCell className="border-r p-0">
+                      <div className="flex min-w-0 items-start gap-2">
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <Input
+                            className="h-10 border-0 bg-transparent shadow-none rounded-none px-4 focus-visible:ring-0 focus-visible:ring-inset focus-visible:ring-primary"
+                            aria-label={`Points for ${readableEventLabel(event)}`}
+                            value={
+                              pointDrafts[key] ??
+                              (eventPointSystems[key] ?? pointSystem).join(",")
+                            }
+                            aria-invalid={Boolean(pointErrors[key])}
+                            placeholder="7,5,4,3,2,1"
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setPointDrafts((drafts) => ({
+                                ...drafts,
+                                [key]: value,
+                              }));
+                              setPointErrors((errors) => ({
+                                ...errors,
+                                [key]: "",
+                              }));
+                            }}
+                            onBlur={() => {
+                              const draft = pointDrafts[key];
+                              if (draft === undefined) return;
+                              const trimmed = draft.trim();
+                              if (!/^\d+(\s*,\s*\d+)*$/.test(trimmed)) {
+                                setPointErrors((errors) => ({
+                                  ...errors,
+                                  [key]: "Use comma-separated whole numbers.",
+                                }));
+                                return;
+                              }
+                              onPointsChange({
+                                ...eventPointSystems,
+                                [key]: trimmed
+                                  .split(",")
+                                  .map((value) => Number(value.trim())),
+                              });
+                              setPointDrafts((drafts) => {
+                                const next = { ...drafts };
+                                delete next[key];
+                                return next;
+                              });
+                              setPointErrors((errors) => ({
+                                ...errors,
+                                [key]: "",
+                              }));
+                            }}
+                          />
+                          {pointErrors[key] && (
+                            <FieldError role="alert">
+                              {pointErrors[key]}
+                            </FieldError>
+                          )}
+                        </div>
+                        {eventPointSystems[key] && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              const next = { ...eventPointSystems };
+                              delete next[key];
+                              onPointsChange(next);
+                              setPointDrafts((drafts) => {
+                                const updated = { ...drafts };
+                                delete updated[key];
+                                return updated;
+                              });
+                              setPointErrors((errors) => {
+                                const updated = { ...errors };
+                                delete updated[key];
+                                return updated;
+                              });
+                            }}
+                          >
+                            Default
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="px-2">
                       <RowActions
@@ -358,8 +448,8 @@ export function MeetConfigurationFields({
                   </TableRow>
                   {editingEvent === index && (
                     <TableRow className="hover:bg-transparent">
-                      <TableCell colSpan={2}>
-                        <FieldGroup className="py-2">
+                      <TableCell colSpan={3}>
+                        <FieldGroup className="grid gap-3 py-2 sm:grid-cols-2 xl:grid-cols-4">
                           <Field>
                             <FieldLabel htmlFor={`${id}-distance-${index}`}>
                               Distance (m)
@@ -377,7 +467,7 @@ export function MeetConfigurationFields({
                               }
                             />
                           </Field>
-                          <TextCombobox
+                          <StrokeCombobox
                             id={`${id}-stroke-${index}`}
                             label="Stroke"
                             value={event.stroke}
@@ -431,49 +521,6 @@ export function MeetConfigurationFields({
                               />
                             </Field>
                           )}
-                          <div className="grid grid-cols-4 gap-2">
-                            {pointSystem.map((points, rank) => (
-                              <Field key={rank}>
-                                <FieldLabel
-                                  htmlFor={`${id}-points-${index}-${rank}`}
-                                >
-                                  Rank {rank + 1}
-                                </FieldLabel>
-                                <Input
-                                  id={`${id}-points-${index}-${rank}`}
-                                  type="number"
-                                  min="0"
-                                  value={
-                                    (eventPointSystems[key] ?? pointSystem)[
-                                      rank
-                                    ] ?? points
-                                  }
-                                  onChange={(e) => {
-                                    const next = [
-                                      ...(eventPointSystems[key] ??
-                                        pointSystem),
-                                    ];
-                                    next[rank] = Number(e.target.value);
-                                    onPointsChange({
-                                      ...eventPointSystems,
-                                      [key]: next,
-                                    });
-                                  }}
-                                />
-                              </Field>
-                            ))}
-                          </div>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => {
-                              const next = { ...eventPointSystems };
-                              delete next[key];
-                              onPointsChange(next);
-                            }}
-                          >
-                            Reset event points
-                          </Button>
                         </FieldGroup>
                       </TableCell>
                     </TableRow>

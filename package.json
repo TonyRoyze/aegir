@@ -10,7 +10,7 @@
     "test:pdf": "tsx --test tests/pdf-generation.test.ts",
     "test:config": "vitest run",
     "typecheck": "tsc --noEmit --incremental false",
-    "test:domain": "tsx --test tests/domain.test.ts"
+    "test:domain": "tsx --test tests/domain.test.ts tests/event-order.test.ts"
   },
   "dependencies": {
     "@base-ui-components/react": "1.0.0-rc.0",
