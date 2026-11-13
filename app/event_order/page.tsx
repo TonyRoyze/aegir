@@ -2,7 +2,6 @@
 
 export const dynamic = "force-dynamic";
 
-import { downloadPdf } from "@/lib/pdf/download";
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { preferredMeetId } from "@/lib/meet-selection";
@@ -16,105 +15,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-  useSortable,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import {
-  GripVertical,
-  Loader2,
-  RefreshCcw,
-  Download,
-  WandSparkles,
-} from "lucide-react";
-import { MeetProgramPdfPreview } from "@/components/meet-program-pdf-preview";
-import {
-  EventRestSummary,
-  optimizeEventOrderForRest,
-  summarizeEventRest,
-} from "@/lib/event-rest-utils";
-import {
-  clearProgramEventOrder,
-  loadProgramEventOrder,
-  saveProgramEventOrder,
-} from "@/lib/program-event-order";
-
-// Sortable Item Component
-function SortableEventItem({
-  id,
-  name,
-  restSummary,
-}: {
-  id: string;
-  name: string;
-  restSummary?: EventRestSummary;
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition } =
-    useSortable({ id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
-
-  const hasConflict = Boolean(
-    restSummary &&
-    (restSummary.sharedWithPrevious > 0 || restSummary.sharedWithNext > 0),
-  );
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={`mb-2 rounded-md border p-2 transition-colors ${
-        hasConflict
-          ? "border-red-300 bg-red-50 text-red-950"
-          : "bg-card group hover:border-primary/50"
-      }`}
-    >
-      <div className="flex items-center gap-2">
-        <button
-          {...attributes}
-          {...listeners}
-          className="cursor-grab hover:bg-muted p-1 rounded active:cursor-grabbing touch-none"
-        >
-          <GripVertical className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
-        </button>
-        <span className="text-sm font-medium truncate flex-1">{name}</span>
-      </div>
-      {hasConflict ? (
-        <div className="mt-2 space-y-1 pl-8 text-[11px] leading-4 text-red-700">
-          {restSummary?.sharedWithPrevious ? (
-            <div>
-              {restSummary.sharedWithPrevious} swimmer
-              {restSummary.sharedWithPrevious === 1 ? "" : "s"} also in previous
-              event
-            </div>
-          ) : null}
-          {restSummary?.sharedWithNext ? (
-            <div>
-              {restSummary.sharedWithNext} swimmer
-              {restSummary.sharedWithNext === 1 ? "" : "s"} also in next event
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
-  );
-}
+import Link from "next/link";
+import { Loader2, RefreshCcw, Download, Workflow } from "lucide-react";
+import { MeetProgramView } from "@/components/meet-program-view";
+import { summarizeEventRest } from "@/lib/event-rest-utils";
+import { useProgramEventOrder } from "@/lib/use-program-event-order";
 
 export default function EventOrderPage() {
   const [selectedMeetId, setSelectedMeetId] = useState<string | null>(null);
@@ -127,62 +32,23 @@ export default function EventOrderPage() {
     api.meets.generateHeatAssignments,
   );
 
-  // Derive local state for optimistic updates or just to handle sorting
-  const [orderedEvents, setOrderedEvents] = useState<string[]>([]);
+  const selectedMeet = meets?.find((m) => m._id === selectedMeetId);
+  const orderedEvents = useProgramEventOrder(
+    selectedMeetId,
+    selectedMeet?.events ?? [],
+  );
 
   // Set initial selected meet
   useEffect(() => {
     if (meets && meets.length > 0 && !selectedMeetId) {
-      setSelectedMeetId(preferredMeetId(meets) ?? "");
+      const requested = new URLSearchParams(window.location.search).get("meet");
+      setSelectedMeetId(preferredMeetId(meets, requested) ?? "");
     }
   }, [meets, selectedMeetId]);
-
-  // Sync ordered events when selected meet changes
-  const selectedMeet = meets?.find((m) => m._id === selectedMeetId);
-  useEffect(() => {
-    if (selectedMeet) {
-      setOrderedEvents(loadProgramEventOrder(selectedMeet._id, selectedMeet.events));
-    }
-  }, [selectedMeet]);
-
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
-  );
-
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
-
-    if (over && active.id !== over.id) {
-      const oldIndex = orderedEvents.indexOf(active.id as string);
-      const newIndex = orderedEvents.indexOf(over.id as string);
-
-      const newOrder = arrayMove(orderedEvents, oldIndex, newIndex);
-      setOrderedEvents(newOrder);
-
-      if (selectedMeetId) {
-        saveProgramEventOrder(selectedMeetId, newOrder);
-      }
-    }
-  };
-
-  const handleResetOrder = () => {
-    if (selectedMeet) {
-      setOrderedEvents(selectedMeet.events);
-      clearProgramEventOrder(selectedMeet._id);
-    }
-  };
 
   const restSummaries = useMemo(
     () => summarizeEventRest(registrations || [], orderedEvents),
     [orderedEvents, registrations],
-  );
-
-  const restSummaryByEvent = useMemo(
-    () => new Map(restSummaries.map((summary) => [summary.eventName, summary])),
-    [restSummaries],
   );
 
   const totalAdjacentConflicts = useMemo(
@@ -191,31 +57,19 @@ export default function EventOrderPage() {
     [restSummaries],
   );
 
-  const suggestedOrder = useMemo(
-    () => registrations && orderedEvents.length > 1
-      ? optimizeEventOrderForRest(registrations, orderedEvents) : orderedEvents,
-    [orderedEvents, registrations],
-  );
-  const hasAutoSortImprovement = suggestedOrder.join("|") !== orderedEvents.join("|");
-
-  const handleAutoSort = async () => {
-    if (!selectedMeetId || !registrations) {
-      return;
-    }
-
-    const optimizedOrder = suggestedOrder;
-    if (optimizedOrder.join("|") === orderedEvents.join("|")) {
-      return;
-    }
-
-    setOrderedEvents(optimizedOrder);
-    saveProgramEventOrder(selectedMeetId, optimizedOrder);
-  };
-
   const [downloading, setDownloading] = useState(false);
 
   const handleDownloadPdf = async () => {
     if (!selectedMeet) return;
+    // Open during the click so browsers allow the tab before async generation.
+    const previewTab = window.open("about:blank", "_blank");
+    if (!previewTab) {
+      alert("Allow pop-ups for this site to open the PDF preview.");
+      return;
+    }
+    previewTab.opener = null;
+    previewTab.document.title = `${selectedMeet.name} - Start List`;
+    previewTab.document.body.textContent = "Generating PDF...";
     setDownloading(true);
     try {
       const { generateMeetProgramPdf } = await import("@/lib/pdf/meet-program");
@@ -224,10 +78,19 @@ export default function EventOrderPage() {
         registrations: registrations || [],
         orderedEvents,
       });
-      downloadPdf(bytes, `${selectedMeet.name} - Start List.pdf`);
+      const url = URL.createObjectURL(
+        new Blob([new Uint8Array(bytes)], { type: "application/pdf" }),
+      );
+      if (!previewTab.closed) previewTab.location.replace(url);
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (error) {
+      previewTab.close();
       console.error("PDF generation failed:", error);
-      alert(error instanceof Error ? error.message : "Failed to generate PDF. Please try again.");
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to generate PDF. Please try again.",
+      );
     } finally {
       setDownloading(false);
     }
@@ -241,10 +104,10 @@ export default function EventOrderPage() {
     );
 
   return (
-    <div className="flex h-screen bg-background font-sans text-neutral-900">
+    <div className="flex min-h-screen xl:h-screen flex-col-reverse xl:flex-row bg-background font-sans text-neutral-900">
       {/* Left Main Content - Preview Area */}
-      <div className="flex-1 overflow-auto bg-slate-100 p-8 hidden xl:block">
-        <MeetProgramPdfPreview
+      <div className="flex-1 overflow-auto bg-slate-100 p-4 xl:p-8">
+        <MeetProgramView
           meet={selectedMeet || null}
           registrations={registrations || []}
           orderedEvents={orderedEvents}
@@ -284,7 +147,7 @@ export default function EventOrderPage() {
 
             <Button
               onClick={handleDownloadPdf}
-              disabled={downloading || !selectedMeet}
+              disabled={downloading || !selectedMeet || !registrations}
               className="w-full gap-2 font-semibold shadow-sm"
               size="lg"
             >
@@ -312,18 +175,16 @@ export default function EventOrderPage() {
               Generate Heats
             </Button>
 
-            <Button
-              onClick={handleAutoSort}
-              disabled={
-                !selectedMeetId || !registrations || !hasAutoSortImprovement
-              }
-              variant="outline"
-              className="w-full gap-2"
-              size="lg"
-            >
-              <WandSparkles className="w-4 h-4" />
-              Auto Sort for Rest
-            </Button>
+            {selectedMeetId && (
+              <Button asChild variant="outline" className="w-full" size="lg">
+                <Link
+                  href={`/event_order/edit?meet=${encodeURIComponent(selectedMeetId)}`}
+                >
+                  <Workflow data-icon="inline-start" />
+                  Reorder events
+                </Link>
+              </Button>
+            )}
 
             <div
               className={`rounded-lg border px-3 py-2 text-sm ${
@@ -339,51 +200,26 @@ export default function EventOrderPage() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-hidden flex flex-col min-h-0">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Events Order
-            </h3>
-            <span className="text-[10px] text-muted-foreground bg-slate-100 px-2 py-0.5 rounded-full">
-              Drag to Reorder
-            </span>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => handleResetOrder()}
-              title="Reset Order"
-            >
-              <RefreshCcw className="h-4 w-4" />
-            </Button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto pr-2 -mr-2">
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-            >
-              <SortableContext
-                items={orderedEvents}
-                strategy={verticalListSortingStrategy}
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
+          <h3 className="text-sm font-semibold">Running order</h3>
+          <ol className="flex flex-1 flex-col gap-2 overflow-y-auto">
+            {orderedEvents.map((event, index) => (
+              <li
+                key={event}
+                className="flex items-start gap-3 rounded-md border p-3 text-sm"
               >
-                {orderedEvents.map((event) => (
-                  <SortableEventItem
-                    key={event}
-                    id={event}
-                    name={event}
-                    restSummary={restSummaryByEvent.get(event)}
-                  />
-                ))}
-              </SortableContext>
-            </DndContext>
-
-            {orderedEvents.length === 0 && (
-              <div className="text-sm text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
-                No events found in this meet.
-              </div>
-            )}
-          </div>
+                <span className="text-muted-foreground tabular-nums">
+                  {index + 1}
+                </span>
+                <span>{event}</span>
+              </li>
+            ))}
+          </ol>
+          {orderedEvents.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              No events found in this meet.
+            </p>
+          )}
         </div>
       </div>
     </div>

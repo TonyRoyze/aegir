@@ -46,6 +46,10 @@ pnpm build
 
 `test:config` runs isolated Convex tests without mutating a deployment. Backend API changes also require Convex code generation before release.
 
+## Event order editor
+
+Open **Reorder events** on the program page to arrange cards on a canvas, connect precedence arrows, pin exact positions and optimize swimmer rest. Save the program to apply its order to the preview and timing page. See [canvas editing and persistence](docs/event-order-canvas.md).
+
 ## Maintenance references
 
 - [Cleanup plan and execution tracker](CODE_CLEANUP_PLAN.md)

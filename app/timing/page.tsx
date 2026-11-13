@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { HeatTables } from "@/components/HeatTables";
 import { FacultyLeaderboard } from "@/components/FacultyLeaderboard";
-import { loadProgramEventOrder } from "@/lib/program-event-order";
+import { useProgramEventOrder } from "@/lib/use-program-event-order";
 
 // --- Main Page ---
 
@@ -36,9 +36,10 @@ export default function TimingPage() {
   const clearResult = useMutation(api.results.clearResult);
 
   const [savingId, setSavingId] = useState<string | null>(null);
-  const orderedEvents = selectedMeet
-    ? loadProgramEventOrder(selectedMeet._id, selectedMeet.events)
-    : [];
+  const orderedEvents = useProgramEventOrder(
+    selectedMeetId,
+    selectedMeet?.events ?? [],
+  );
 
   useEffect(() => {
     if (meets && meets.length > 0 && !selectedMeetId) {

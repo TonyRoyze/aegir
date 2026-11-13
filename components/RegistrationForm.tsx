@@ -28,12 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { RegistrationTeamSelect } from "./registration-team-select";
-import {
-  teamLabel,
-  normalizeTeam,
-  type TeamInput,
-} from "@/lib/meet-configuration";
+import { teamLabel, normalizeTeam } from "@/lib/meet-configuration";
 import {
   Combobox,
   ComboboxInput,
@@ -43,10 +38,11 @@ import {
   ComboboxEmpty,
 } from "@/components/ui/combobox";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { MobileRegistrationForm } from "./MobileRegistrationForm";
 import { useQuery, useMutation } from "convex/react";
+import { reconcileRegistrationRows } from "@/lib/registration-reconciliation";
 import { registrationSnapshot } from "@/lib/registration-snapshot";
 import { preferredMeetId } from "@/lib/meet-selection";
 import { api } from "@/convex/_generated/api";
@@ -64,9 +60,7 @@ const RegistrationRow = ({
   remove,
   columnCounts,
   availableEvents,
-  teams,
 }: {
-  teams: TeamInput[];
   index: number;
   form: UseFormReturn<FormValues>;
   remove: (index: number) => void;
@@ -79,10 +73,6 @@ const RegistrationRow = ({
     defaultValue: [],
   });
 
-  const teamId = useWatch({
-    control: form.control,
-    name: `registrations.${index}.teamId`,
-  });
   const isRowLimitExceeded = isRegistrationLimitExceeded(events);
 
   const toggleEvent = (event: string) => {
@@ -110,19 +100,6 @@ const RegistrationRow = ({
           className="h-10 border-0 bg-transparent shadow-none rounded-none px-4 focus-visible:ring-0 focus-visible:ring-inset focus-visible:ring-primary print:text-xs"
           placeholder="John Doe"
         />
-        <div className="px-2 pb-2 print:hidden">
-          <RegistrationTeamSelect
-            teams={teams}
-            value={teamId}
-            onChange={(team) => {
-              form.setValue(`registrations.${index}.teamId`, team.id);
-              form.setValue(
-                `registrations.${index}.student.faculty`,
-                teamLabel(team),
-              );
-            }}
-          />
-        </div>
       </TableCell>
       <TableCell className="p-0 border-r print:hidden">
         <Input
@@ -255,6 +232,13 @@ export function RegistrationForm() {
     keyName: "formKey",
   });
 
+  const applySavedRows = useCallback(
+    (saved: FormValues["registrations"]) => {
+      reconcileRegistrationRows(saved, form, { append, remove });
+    },
+    [form, append, remove],
+  );
+
   // Adopt live updates only when there are no unsaved local edits.
   useEffect(() => {
     setIsMounted(true);
@@ -268,13 +252,17 @@ export function RegistrationForm() {
       setSyncError(null);
     }
     if (remoteData && !state.dirty && !state.saving) {
+      const snapshot = registrationSnapshot(remoteData);
+      if (loadedMeetId === selectedMeetId && snapshot === state.baseline)
+        return;
       state.resetting = true;
-      form.reset({ registrations: remoteData });
+      if (loadedMeetId === selectedMeetId) applySavedRows(remoteData);
+      else form.reset({ registrations: remoteData });
       state.resetting = false;
-      state.baseline = registrationSnapshot(remoteData);
+      state.baseline = snapshot;
       setLoadedMeetId(selectedMeetId);
     }
-  }, [remoteData, form, selectedMeetId]);
+  }, [remoteData, form, selectedMeetId, loadedMeetId, applySavedRows]);
 
   // Watch all registrations
   const registrations = useWatch({
@@ -356,12 +344,8 @@ export function RegistrationForm() {
           registrationSnapshot(form.getValues("registrations")) !== sent;
         setSyncError(null);
         if (!state.dirty) {
-          // Keep empty local draft rows while receiving changes to saved rows.
-          const empty = rows.filter(
-            (reg) => !payload.some((item) => item.id === reg.id),
-          );
           state.resetting = true;
-          form.reset({ registrations: [...saved, ...empty] });
+          applySavedRows(saved);
           state.resetting = false;
         } else scheduleSave(1000);
       } catch (error) {
@@ -392,7 +376,7 @@ export function RegistrationForm() {
       subscription.unsubscribe();
       if (timer) clearTimeout(timer);
     };
-  }, [form, syncData, loadedMeetId, selectedMeetId]);
+  }, [form, syncData, loadedMeetId, selectedMeetId, applySavedRows]);
 
   if (!isMounted) return null;
 
@@ -632,7 +616,6 @@ export function RegistrationForm() {
                     form={form}
                     remove={remove}
                     columnCounts={columnCounts}
-                    teams={meetTeams}
                     availableEvents={meetEvents}
                   />
                 );
@@ -678,7 +661,6 @@ export function RegistrationForm() {
           <>
             <MobileRegistrationForm
               form={form}
-              teams={meetTeams}
               fields={fields}
               remove={remove}
               activeTab={activeTab}

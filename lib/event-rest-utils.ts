@@ -13,7 +13,7 @@ export interface EventRestSummary {
   nextSharedNames: string[];
 }
 
-interface RegistrationLike {
+export interface RegistrationLike {
   id?: string;
   student?: {
     _id?: string;
@@ -188,4 +188,10 @@ export function optimizeEventOrderForRest(
   }
 
   return bestOrder;
+}
+
+/** Pairwise overlap counts use stable swimmer identity, including relay members. */
+export function getEventConflictMatrix(registrations: RegistrationLike[], events: string[]): number[][] {
+  const participants = buildEventParticipants(registrations, events);
+  return events.map(left => events.map(right => left === right ? 0 : getSharedStudents(participants.get(left), participants.get(right)).length));
 }

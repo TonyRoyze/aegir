@@ -29,11 +29,8 @@ import { cn } from "@/lib/utils";
 
 import { isRegistrationLimitExceeded, eventCapacity } from "@/lib/registration-rules";
 import type { FormValues } from "@/lib/registration-form-schema";
-import { RegistrationTeamSelect } from "./registration-team-select";
-import { teamLabel, type TeamInput } from "@/lib/meet-configuration";
 
 interface MobileRegistrationFormProps {
-  teams: TeamInput[];
   form: UseFormReturn<FormValues>;
   fields: FieldArrayWithId<FormValues, "registrations", "formKey">[]; // fields from useFieldArray
   remove: (index: number) => void;
@@ -49,10 +46,8 @@ const MobileStudentItem = ({
   remove,
   columnCounts,
   availableEvents,
-  teams,
 }: {
   index: number;
-  teams: TeamInput[];
   form: UseFormReturn<FormValues>;
   remove: (index: number) => void;
   columnCounts?: Record<string, number>;
@@ -64,10 +59,6 @@ const MobileStudentItem = ({
     defaultValue: [],
   });
 
-  const teamId = useWatch({
-    control: form.control,
-    name: `registrations.${index}.teamId`,
-  });
   const isRowLimitExceeded = isRegistrationLimitExceeded(events);
 
   // Watch name for the trigger label
@@ -130,17 +121,6 @@ const MobileStudentItem = ({
       </AccordionTrigger>
       <AccordionContent className="px-4 pb-4 space-y-4">
         <div className="grid gap-4">
-          <RegistrationTeamSelect
-            teams={teams}
-            value={teamId}
-            onChange={(team) => {
-              form.setValue(`registrations.${index}.teamId`, team.id);
-              form.setValue(
-                `registrations.${index}.student.faculty`,
-                teamLabel(team),
-              );
-            }}
-          />
           <div className="space-y-2">
             <label className="text-sm font-medium">Student Name</label>
             <Input
@@ -258,7 +238,6 @@ export function MobileRegistrationForm({
   columnCounts,
   selectedFaculty,
   availableEvents,
-  teams,
 }: MobileRegistrationFormProps) {
   const registrations = useWatch({
     control: form.control,
@@ -282,7 +261,6 @@ export function MobileRegistrationForm({
                 form={form}
                 remove={remove}
                 columnCounts={columnCounts}
-                teams={teams}
                 availableEvents={availableEvents}
               />
             );
